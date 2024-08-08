@@ -1,3 +1,4 @@
+
 import os
 import sys
 import rasterio
@@ -5,7 +6,7 @@ import subprocess
 import stat
 import shutil
 import re
-#import ndvi2gif
+
 import numpy as np
 
 from osgeo import gdal, gdalconst
@@ -292,7 +293,7 @@ class Landsat:
                         name = self.escena_date + self.sat + self.sensor[self.sat] + self.path + '_' + self.row[1:] + '_g2_' + olibands[banda] + '.tif'
                         out = os.path.join(path_rad, name.lower())
 
-                        cmd = "gdalwarp -dstnodata -9999 -tr 30 30 -te 633570 4053510 851160 4249530 -tap -cutline /media/diego/Datos4/EBD/Protocolo_v2_2024/data/wrs_202034.shp -srcnodata 0 -dstnodata -9999 {} {}".format(ins, out)
+                        cmd = "gdalwarp -ot Int32 -srcnodata 0 -dstnodata '-9999' -tr 30 30 -te 633570 4053510 851160 4249530 -tap -cutline /media/diego/Datos4/EBD/Protocolo_v2_2024/data/wrs_202034.shp {} {}".format(ins, out)
                         print(cmd)
                         os.system(cmd)
 
@@ -310,7 +311,7 @@ class Landsat:
                         name = self.escena_date + self.sat + self.sensor[self.sat] + self.path + '_' + self.row[1:] + '_g2_' + etmbands[banda] + '.tif'
                         out = os.path.join(path_rad, name.lower())
 
-                        cmd = "gdalwarp -dstnodata -9999 -tr 30 30 -te 633570 4053510 851160 4249530 -tap -cutline /media/diego/Datos4/EBD/Protocolo_v2_2024/data/wrs_202034.shp -srcnodata 0 -dstnodata -9999 {} {}".format(ins, out)
+                        cmd = "gdalwarp -ot Int32 -srcnodata 0 -dstnodata '-9999' -tr 30 30 -te 633570 4053510 851160 4249530 -tap -cutline /media/diego/Datos4/EBD/Protocolo_v2_2024/data/wrs_202034.shp {} {}".format(ins, out)
                         print(cmd)
                         os.system(cmd)
 
@@ -322,71 +323,84 @@ class Landsat:
                 print('Lo siento, pero no encuentro el satélite')
                 
                 
-    #Aplicamos los coeficientes de reflectancia y temperatura de superficie
     def coef_sr_st(self):
 
         '''Esta función va a aplicar los coeficientes de reflectancia y temperatura 
         de superficie a las bandas de la escena.'''
-
-        #Recorremos todas las bandas de la escena y las abrimos con rasterio
-        #Para aplicar los coeficientes de reflectancia y temperatura de superficie
-        #Solo hay que discriminar entre la banda lst y el resto de bandas, dejando fuera a fmask
+    
         path_geo = os.path.join(self.geo, self.escena)
         path_rad = os.path.join(self.rad, self.escena)
         os.makedirs(path_rad, exist_ok=True)
         
         for i in os.listdir(path_geo):
-
+    
             if i.endswith('.tif'):
-
+    
                 banda = i.split('_')[-1][:-4]
-
+                
+    
                 if banda not in ['fmask', 'lst']:
+
+                    print("Aplicando coeficientes a banda", banda)
                     
                     #nombre de salida que reemplace la  _g2_ del nombre original por _gr2_
                     rs = os.path.join(path_geo, i)
                     out = os.path.join(path_rad, i.replace('_g2_', '_gr2_'))
-
+    
                     with rasterio.open(rs) as src:
                         RS = src.read(1)
                         meta = src.meta
-
+    
+                    # Aplicar coeficientes de reflectancia
                     sr = RS * 0.0000275 - 0.2
-                    srnd = np.where(RS==0, 0, sr)
+    
+                    # Ajustar los valores al rango 0-1
+                    sr = np.clip(sr, 0, 1)
+                    
+                    # Mantener los valores NoData
+                    sr = np.where(RS == -9999, -9999, sr)
+                    
                     meta.update(dtype=rasterio.float32)
-
+    
                     with rasterio.open(out, 'w', **meta) as dst:
-                        dst.write(srnd.astype(rasterio.float32), 1)
-
+                        dst.write(sr.astype(rasterio.float32), 1)
+    
                 elif banda == 'lst':
 
+                    print("Aplicando coeficientes a banda", banda)
+                
                     #nombre de salida que reemplace la  _g2_ del nombre original por _gr2_
                     rs = os.path.join(path_geo, i)
                     out = os.path.join(path_rad, i.replace('_g2_', '_gr2_'))
-
+    
                     with rasterio.open(rs) as src:
                         RS = src.read(1)
                         meta = src.meta
-
+    
+                    # Aplicar coeficientes de temperatura
                     lst = RS * 0.00341802 + 149.0
                     lst -= 273.15
-                    lstnd = np.where(RS==0, 0, lst)
-
+    
+                    # Mantener los valores NoData
+                    lst = np.where(RS == -9999, -9999, lst)
+                    
                     meta.update(dtype=rasterio.float32)
-
+    
                     with rasterio.open(out, 'w', **meta) as dst:
-                        dst.write(lstnd.astype(rasterio.float32), 1)
-
+                        dst.write(lst.astype(rasterio.float32), 1)
+    
                 elif banda == 'fmask':
-                                       
+
+                    print("Copiando", banda)
                     src = rs = os.path.join(path_geo, i)
                     dst = os.path.join(path_rad, i.replace('_g2_', '_gr2_'))                
                     shutil.copy(src, dst)
-
+    
                 else:                                       
                     continue
-
+    
         print('Coeficientes aplicados con éxito')
+
                  
             
     def normalize(self):
