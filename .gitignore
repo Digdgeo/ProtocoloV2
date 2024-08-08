@@ -131,3 +131,4 @@ cython_debug/
 
 # Notebooks
 **/*.ipynb_checkpoints/
+**/*.ipynb_checkpoints/*
