@@ -132,3 +132,4 @@ cython_debug/
 # Notebooks
 **/*.ipynb_checkpoints/
 **/*.ipynb_checkpoints/*
+code/Landsat_Col2.ipynb
