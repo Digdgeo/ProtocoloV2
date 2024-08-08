@@ -5,7 +5,7 @@ import subprocess
 import stat
 import shutil
 import re
-
+#import ndvi2gif
 import numpy as np
 
 from osgeo import gdal, gdalconst
