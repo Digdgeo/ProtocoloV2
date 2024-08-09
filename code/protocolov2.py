@@ -683,4 +683,4 @@ class Landsat:
             profile.update(dtype=rasterio.uint16)
 
             with rasterio.open(outFile, 'w', **profile) as dst:
-                dst.write(rs.astype(rasterio.uint16))     
+                dst.write(rs.astype(rasterio.uint16))
