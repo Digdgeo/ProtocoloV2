@@ -1,4 +1,3 @@
-
 import os
 import sys
 import rasterio
@@ -6,6 +5,7 @@ import subprocess
 import stat
 import shutil
 import re
+import time
 
 import numpy as np
 import seaborn as sns; sns.set(color_codes=True)
@@ -79,7 +79,7 @@ class Landsat:
             self.cloud_mask_values = [5440, 5504]
 
         #Definimos nombre last
-        self.last_name = self.escena_date + self.sat + self.sensor + self.path + '_' + self.row[1:]
+        self.last_name = (self.escena_date + self.sat + self.sensor + self.path + '_' + self.row[1:]).lower()
 
         # Definimos paths de salida
         self.pro_escena = os.path.join(self.pro, self.last_name)
@@ -206,6 +206,34 @@ class Landsat:
             #ese caso, lo que hacemos es actualizar la fecha en la que tratamos la imagen
 
         print('Landsat instanciada y subida a la base de datos')
+
+
+    def get_hillshade(self):
+
+        '''-----\n
+        Este metodo crea el hillshade con los parámetros de cada escena'''
+
+        dtm = os.path.join(self.data, 'dtm_202_34.tif') #Por defecto esta en 29 y solo para la 202_34
+        azimuth = self.mtl['SUN_AZIMUTH']
+        elevation = self.mtl['SUN_ELEVATION']
+        
+        #Una vez tenemos estos parametros generamos el hillshade
+        salida = os.path.join(self.nor_escena, 'hillshade.tif')
+        cmd = ["gdaldem", "hillshade", "-az", "-alt", "-of", "GTIFF"]
+        cmd.append(dtm)
+        cmd.append(salida)
+        cmd.insert(3, str(azimuth))
+        cmd.insert(5, str(elevation))
+        
+        proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+        stdout,stderr=proc.communicate()
+        exit_code=proc.wait()
+
+        if exit_code: 
+            raise RuntimeError(stderr)
+        else:
+            print(stdout)
+            print('Hillshade generado')
         
         
     def get_cloud_pn(self):
@@ -723,13 +751,11 @@ class Landsat:
     def run(self):
         
         t0 = time.time()
-        #self.fmask()
+        self.get_hillshade()
         self.get_cloud_pn()
         self.remove_masks()
         self.projwin()
-        #self.get_kl_csw()
-        #self.get_radiance()
-        #self.corrad()
-        #self.clean_rad()
+        self.coef_sr_st()
         self.normalize()
         print('Escena finalizada en', abs(t0-time.time()), 'segundos')
+        
