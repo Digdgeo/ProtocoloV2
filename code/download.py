@@ -3,7 +3,7 @@ import arrow
 from landsatxplore.api import API
 from landsatxplore.earthexplorer import EarthExplorer
 
-def download_landsat_scenes(username, password, latitude, longitude, days_back=15, end_date=None, max_cloud_cover=10, output_dir='./'):
+def download_landsat_scenes(username, password, latitude, longitude, days_back=15, end_date=None, process=True, max_cloud_cover=10, output_dir='./'):
 
     # Initialize EarthExplorer and API instances
     ee = EarthExplorer(username, password)
@@ -40,6 +40,9 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
             sc = scene['display_id']
             print(f"Downloading scene {sc}...")
             ee.download(sc, output_dir=output_dir)
+            if process==True:
+                print('Ahora habría que descomprimir y procesar la escena')
+                pass
         except Exception as e:
             print(f"Error downloading scene {sc}: {e}")
     
