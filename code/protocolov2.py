@@ -635,7 +635,7 @@ class Landsat:
                           4: 'Urbano-1', 5: 'Urbano-2', 6: 'Aeropuertos', 7: 'Arena', 8: 'Pastizales', 9: 'Mineria'}
             
             print('Vamos a sacar el count de cada zona (dict)')
-            for i in range(1,8):
+            for i in range(1,10):
 
                 mask_pia_= np.ma.masked_where(pias_PIA_NoData_STD != i, pias_PIA_NoData_STD)
                 PIA = np.ma.compressed(mask_pia_)
