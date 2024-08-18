@@ -186,7 +186,8 @@ class Landsat:
         print('Landsat iniciada con éxito') 
         
         #Creamos el json para instarlo en la base de datos MongoDB
-        self.newesc = {'_id': self.escena, 'usgs_id': self.mtl['LANDSAT_SCENE_ID'], 
+        self.newesc = {'_id': self.last_name, 
+                       'usgs_id': self.mtl['LANDSAT_SCENE_ID'], 
                        'tier_id': self.mtl['LANDSAT_PRODUCT_ID'],
                            'lpgs': self.mtl['PROCESSING_SOFTWARE_VERSION'],
                        'category': self.mtl['COLLECTION_CATEGORY'],
@@ -201,7 +202,7 @@ class Landsat:
 
         except Exception as e:
 
-            db.update_one({'_id':self.escena}, {'$set':{'Info.Iniciada': datetime.now()}}, upsert=True)
+            db.update_one({'_id': self.last_name}, {'$set':{'Info.Iniciada': datetime.now()}}, upsert=True)
             #print("Unexpected error:", type(e)) #se Podria dar un error por clave unica, por eso en
             #ese caso, lo que hacemos es actualizar la fecha en la que tratamos la imagen
 
@@ -289,7 +290,7 @@ class Landsat:
 
         try:
 
-            db.update_one({'_id':self.escena}, {'$set':{'Clouds.cloud_PN': pn_cover}},  upsert=True)
+            db.update_one({'_id': self.last_name}, {'$set':{'Clouds.cloud_PN': pn_cover}},  upsert=True)
 
         except Exception as e:
             print("Unexpected error:", type(e), e)
@@ -521,7 +522,7 @@ class Landsat:
 
             try:
 
-                db.update_one({'_id':self.escena}, {'$set':{'Info.Pasos.nor': 
+                db.update_one({'_id': self.last_name}, {'$set':{'Info.Pasos.nor': 
                         {'Normalize': 'True', 'Nor-Values': self.parametrosnor, 'Fecha': datetime.now()}}})
 
             except Exception as e:
@@ -663,36 +664,45 @@ class Landsat:
                         print('banda:', r)
                         raster = os.path.join(self.rad_escena, r)
                         print('La banda que se va a normalizar es:', raster)
-                        self.nor2l8(raster, slope, intercept)# Aqui hay que cambiar para que llame a las bandas de rad
-                        print('\nNormalizacion de ', banda_num, ' realizada.\n')
-                 
-                        fig = plt.figure(figsize=(15,10))
-                        ax1 = fig.add_subplot(121)
-                        ax2 = fig.add_subplot(122)
-                        ax1.set_ylim((0, 1))
-                        ax1.set_xlim((0, 1))
-                        ax2.set_ylim((0, 1))
-                        ax2.set_xlim((0, 1))
-                        
-                        sns.regplot(x=BANDA2, y=REF2, color='g', ax=ax1,
-                            line_kws={'color': 'grey', 'label': "y={0:.5f}x+{1:.5f}".format(First_slope, First_intercept)}
-                        ).set_title('Regresion PIAs')
-                        
-                        sns.regplot(x=current_PIA_NoData_STD, y=ref_PIA_NoData_STD, color='b', ax=ax2,
-                            line_kws={'color': 'grey', 'label': "y={0:.5f}x+{1:.5f}".format(slope, intercept)}
-                        ).set_title('Regresion PIAs-STD')
-                        
-                        #Legend
-                        ax1.legend()
-                        ax2.legend()
-                        
-                        title_ = os.path.split(banda)[1][:-4] + '. Iter: ' + str(self.iter)
-                        fig.suptitle(title_, fontsize=15, weight='bold')
-                        
-                        plt.savefig(os.path.join(self.nor_escena, os.path.split(banda)[1][:-4])+'.png')
-                        plt.show()
+
+                        if r_value > 0.85 and min(values.values()) >= 10:
+                            self.nor2l8(raster, slope, intercept)# Aqui hay que cambiar para que llame a las bandas de rad
+                            print('\nNormalizacion de ', banda_num, ' realizada.\n')
+                     
+                            fig = plt.figure(figsize=(15,10))
+                            ax1 = fig.add_subplot(121)
+                            ax2 = fig.add_subplot(122)
+                            ax1.set_ylim((0, 1))
+                            ax1.set_xlim((0, 1))
+                            ax2.set_ylim((0, 1))
+                            ax2.set_xlim((0, 1))
+                            
+                            sns.regplot(x=BANDA2, y=REF2, color='g', ax=ax1,
+                                line_kws={'color': 'grey', 'label': "y={0:.5f}x+{1:.5f}".format(First_slope, First_intercept)}
+                            ).set_title('Regresion PIAs')
+                            
+                            sns.regplot(x=current_PIA_NoData_STD, y=ref_PIA_NoData_STD, color='b', ax=ax2,
+                                line_kws={'color': 'grey', 'label': "y={0:.5f}x+{1:.5f}".format(slope, intercept)}
+                            ).set_title('Regresion PIAs-STD')
+                            
+                            #Legend
+                            ax1.legend()
+                            ax2.legend()
+                            
+                            title_ = os.path.split(banda)[1][:-4] + '. Iter: ' + str(self.iter)
+                            fig.suptitle(title_, fontsize=15, weight='bold')
+
+                            reg_name = os.path.join(self.nor_escena, os.path.split(banda)[1][:-4])+'.png'
+                            reg_nname = reg_name.replace('gr2', 'grn2')
+                            plt.savefig(reg_nname)
+                            plt.show()
+
+                        else:
+                            print('no se puede normalizar la banda', banda)
+                            pass
                             
             else:
+                print('no se puede normalizar la banda', banda)
                 pass
                                        
                     
@@ -758,4 +768,3 @@ class Landsat:
         self.coef_sr_st()
         self.normalize()
         print('Escena finalizada en', abs(t0-time.time()), 'segundos')
-        
