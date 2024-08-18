@@ -9,6 +9,7 @@ sys.path.append('/home/diego/git/ProtocoloV2/code')
 
 from protocolov2 import Landsat
 from productos import Product
+from utils import *
 
 from landsatxplore.api import API
 from landsatxplore.earthexplorer import EarthExplorer
@@ -121,6 +122,16 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
                     # Now we have the scene processed and we are going to run the products (by the moment testing with NDVI)
                     landsatp = Product(landsat.nor_escena)
                     landsatp.ndvi()
+
+                    # Let's try to send an email
+                    print('Moving to mailing')
+                    info_escena = {'escena': landsat.last_name,
+                                   'nubes_escena': landsat.newesc['Clouds']['cloud_scene'],
+                                   'nubes_land': landsat.newesc['Clouds']['land cloud cover'],
+                                   'flood_PN': 15214}
+
+                    archivo_adjunto = '/media/diego/Datos4/EBD/Protocolo_v2_2024/sr2/LC08_L2SP_202034_20130622_20200912_02_T1/LC08_L2SP_202034_20130622_20200912_02_T1_Quicklook'
+                    proceso_finalizado(info_escena, archivo_adjunto)
                 
                 except Exception as e:
                     print(f"Error extracting scene {sc}: {e}")                
@@ -135,4 +146,3 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
 
 # Example usage
 #download_landsat_scenes('user_name', 'user_pass', latitude=37.05, longitude=-6.35, end_date='2022-09-05', days_back=20, output_dir='/out/put/dir/to/save/scenes/')
-download_landsat_scenes('diegolast', 'EarthExplorer123!', latitude=37.05, longitude=-6.35, end_date='2013-06-30', days_back=15)

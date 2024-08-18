@@ -70,17 +70,3 @@ def proceso_finalizado(info_escena, archivo_adjunto=None):
 
     # Enviar el correo
     enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto)
-
-# # Ejemplo de cómo llamar a la función al final del proceso
-# info_escena = {
-#     'nombre': 'Landsat8_20230817',
-#     'fecha': '2023-08-17',
-#     'resolucion': '30m',
-#     'otros_detalles': 'Procesada con corrección atmosférica'
-# }
-
-# # Ruta del archivo que quieres adjuntar
-# archivo_adjunto = '/media/diego/Datos4/EBD/Protocolo_v2_2024/sr2/LC08_L2SP_202034_20130622_20200912_02_T1/LC08_L2SP_202034_20130622_20200912_02_T1_Quicklook'  # Cambia esto por la ruta de tu archivo
-
-# # Llamamos a la función cuando el proceso termine
-# proceso_finalizado(info_escena, archivo_adjunto)

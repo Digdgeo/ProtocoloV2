@@ -177,7 +177,7 @@ class Landsat:
             qk.write(urlimg)
             qk.close()
 
-            print('QuicKlook descargado')
+            print('QuicKlook.jpeg descargado')
             
         else:
             print('El Quicklook ya estaba previamente descargado')
