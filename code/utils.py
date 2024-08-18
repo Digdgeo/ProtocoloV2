@@ -53,30 +53,34 @@ def proceso_finalizado(info_escena, archivo_adjunto=None):
     cuerpo = f"""
     Hola equipo,
 
-    La escena {info_escena['nombre']} ha sido procesada exitosamente.
+    Soy el bot del Protocolo de Dieguito (de todos los bots, sin duda el más bonito). Este es un mail automático 
+    para informaros de que la escena {info_escena['escena']} ha sido procesada exitosamente. 
     
     Detalles de la escena:
-    - Fecha: {info_escena['fecha']}
-    - Resolución: {info_escena['resolucion']}
-    - Otros detalles: {info_escena['otros_detalles']}
+
+    - Nubes escena: {info_escena['nubes_escena']}
+    - Nubes escena tierra: {info_escena['nubes_land']}
+    - Inundación Marisma: {info_escena['flood_PN']}
     
-    Saludos,
-    Don Diego
+    Seguiremos informando,
+    Saludos
+
+    Pd. Se adjunta quicklook de la escena.
     """
 
     # Enviar el correo
     enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto)
 
-# Ejemplo de cómo llamar a la función al final del proceso
-info_escena = {
-    'nombre': 'Landsat8_20230817',
-    'fecha': '2023-08-17',
-    'resolucion': '30m',
-    'otros_detalles': 'Procesada con corrección atmosférica'
-}
+# # Ejemplo de cómo llamar a la función al final del proceso
+# info_escena = {
+#     'nombre': 'Landsat8_20230817',
+#     'fecha': '2023-08-17',
+#     'resolucion': '30m',
+#     'otros_detalles': 'Procesada con corrección atmosférica'
+# }
 
-# Ruta del archivo que quieres adjuntar
-archivo_adjunto = '/media/diego/Datos4/EBD/Protocolo_v2_2024/sr2/LC08_L2SP_202034_20130622_20200912_02_T1/LC08_L2SP_202034_20130622_20200912_02_T1_Quicklook'  # Cambia esto por la ruta de tu archivo
+# # Ruta del archivo que quieres adjuntar
+# archivo_adjunto = '/media/diego/Datos4/EBD/Protocolo_v2_2024/sr2/LC08_L2SP_202034_20130622_20200912_02_T1/LC08_L2SP_202034_20130622_20200912_02_T1_Quicklook'  # Cambia esto por la ruta de tu archivo
 
-# Llamamos a la función cuando el proceso termine
-proceso_finalizado(info_escena, archivo_adjunto)
+# # Llamamos a la función cuando el proceso termine
+# proceso_finalizado(info_escena, archivo_adjunto)
