@@ -5,14 +5,14 @@ import arrow
 import tarfile
 
 # Añadimos la ruta con el código a nuestro pythonpath para poder importar la clase Landsat
-sys.path.append('~/git/ProtocoloV2/code')
+sys.path.append('/home/diego/git/ProtocoloV2/code')
 
 from protocolov2 import Landsat
+from productos import Product
+
 from landsatxplore.api import API
 from landsatxplore.earthexplorer import EarthExplorer
 from pymongo import MongoClient
-
-
 
 #Database part
 client = MongoClient()
@@ -117,6 +117,10 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
                     print('\ncrossed fingers, we are going to start with Protocolo\n')
                     landsat = Landsat(sc_dest)
                     landsat.run()
+
+                    # Now we have the scene processed and we are going to run the products (by the moment testing with NDVI)
+                    landsatp = Product(landsat.nor_escena)
+                    landsatp.ndvi()
                 
                 except Exception as e:
                     print(f"Error extracting scene {sc}: {e}")                
@@ -131,3 +135,4 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
 
 # Example usage
 #download_landsat_scenes('user_name', 'user_pass', latitude=37.05, longitude=-6.35, end_date='2022-09-05', days_back=20, output_dir='/out/put/dir/to/save/scenes/')
+download_landsat_scenes('diegolast', 'EarthExplorer123!', latitude=37.05, longitude=-6.35, end_date='2013-06-30', days_back=15)
