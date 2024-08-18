@@ -21,9 +21,11 @@ class Product(object):
         
         
         self.escena = os.path.split(ruta_nor)[1]
-        self.raiz = os.path.split(ruta_nor)[0]
+        self.raiz = os.path.split(os.path.split(ruta_nor)[0])[0]
+        print(self.raiz)
         self.ori = os.path.join(self.raiz, 'ori')
-        self.nor = os.path.join(self.raiz, 'nor')
+        self.pro = os.path.join(self.raiz, 'pro')
+        self.nor = ruta_nor
         self.productos = os.path.join(self.raiz, 'pro')
         self.data = os.path.join(self.raiz, 'data')
         self.temp = os.path.join(self.raiz, 'temp')
@@ -31,7 +33,7 @@ class Product(object):
         
         self.ori_escena = os.path.join(self.raiz, os.path.join('ori', self.escena))
         self.nor_escena = ruta_nor
-        self.pro_escena = os.path.join(self.productos, self.escena)
+        self.pro_escena = os.path.join(self.pro, self.escena)
         os.makedirs(self.pro_escena, exist_ok=True)
 
         for i in os.listdir(self.nor_escena):
@@ -68,7 +70,7 @@ class Product(object):
        
         try:
         
-            db.update_one({'_id':self.escena}, {'$set':{'Productos': []}},  upsert=True)
+            db.update_one({'last_id':self.escena}, {'$set':{'Productos': []}},  upsert=True)
             
         except Exception as e:
             print("Unexpected error:", type(e), e)
@@ -79,7 +81,7 @@ class Product(object):
         
     def ndvi(self):
 
-        outfile = os.path.join(self.productos, self.escena + '_ndvi_.tif')
+        outfile = os.path.join(self.pro_escena, self.escena + '_ndvi_.tif')
         print(outfile)
         
         with rasterio.open(self.nir) as nir:
@@ -98,16 +100,10 @@ class Product(object):
 
         with rasterio.open(outfile, 'w', **profile) as dst:
             dst.write(ndvi.astype(rasterio.float32))
-            
-        #Insertamos la cobertura de nubes en la BD
-        connection = pymongo.MongoClient("mongodb://localhost")
-        db=connection.teledeteccion
-        landsat = db.landsat
-        
-        
+                    
         try:
         
-            landsat.update_one({'_id':self.escena}, {'$set':{'Productos': ['NDVI']}},  upsert=True)
+            db.update_one({'last_id':self.escena}, {'$set':{'Productos': ['NDVI']}},  upsert=True)
             
         except Exception as e:
             print("Unexpected error:", type(e), e)
