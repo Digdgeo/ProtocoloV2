@@ -118,6 +118,7 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
                         info_escena = {'escena': landsat.last_name,
                                        'nubes_escena': landsat.newesc['Clouds']['cloud_scene'],
                                        'nubes_land': landsat.newesc['Clouds']['land cloud cover'],
+                                       'nubes_Doñana': landsat.pn_cover,
                                        'flood_PN': 15214}
     
                         archivo_adjunto = landsat.qk_name
