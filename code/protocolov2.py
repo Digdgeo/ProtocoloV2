@@ -168,10 +168,10 @@ class Landsat:
         
         # Descargamos el quicklook de la escena 
         url_base = 'https://landsatlook.usgs.gov/gen-browse?size=rrb&type=refl&product_id={}'.format(self.mtl['LANDSAT_PRODUCT_ID'].strip('""'))
-        qk_name = os.path.join(self.ruta_escena, self.escena + '_Quicklook.jpeg')
+        self.qk_name = os.path.join(self.ruta_escena, self.escena + '_Quicklook.jpeg')
         
-        if not os.path.exists(qk_name):
-            qk = open(qk_name, 'wb')
+        if not os.path.exists(self.qk_name):
+            qk = open(self.qk_name, 'wb')
             qk_open = urlopen(url_base)
             urlimg = qk_open.read()
             qk.write(urlimg)
