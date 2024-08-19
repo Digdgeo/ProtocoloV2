@@ -78,11 +78,56 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
                 # Now as default we're going to process the new scene
                 if process == True:
                     # Check database to see if it's already done
-                    print('Ahora habría que descomprimir y procesar la escena')
-                    #pass
+                    print('Ahora habría que descomprimir y procesar la escena. La descarga fue ok')
 
-                # else:
-                #     continue
+                    # Sometimes works good?           
+
+                    print('Vamos a descomprimir', sc)  
+                    
+                    sc_tar = os.path.join(output_dir, sc + '.tar')
+                    sr2 = os.path.split(output_dir)[0]
+                    
+                    print('CHECKING!!', sr2, sc)
+                    
+                    sc_dest = os.path.join(sr2, sc)
+    
+                    os.makedirs(sc_dest, exist_ok=True)
+                    
+                    # En la función download_landsat_scenes
+                    try:
+                        print(f"sc_tar: {sc_tar}")
+                        print(f"sc_dest: {sc_dest}")
+                        print(f"os.path.exists(sc_dest): {os.path.exists(sc_dest)}")
+                                    
+                        print('Extrayendo archivos a sr2')
+                        with tarfile.open(sc_tar) as tar:
+                            tar.extractall(sc_dest)
+                            print(f"Archivos extraídos en {sc_dest}")
+                        
+                        # Once files are extracted in the correct folder we can proceed to run landsat class
+                        print('\ncrossed fingers, we are going to start with Protocolo\n')
+                        landsat = Landsat(sc_dest)
+                        landsat.run()
+    
+                        # Now we have the scene processed and we are going to run the products (by the moment testing with NDVI)
+                        landsatp = Product(landsat.nor_escena)
+                        landsatp.ndvi()
+    
+                        # Let's try to send an email
+                        print('Moving to mailing')
+                        info_escena = {'escena': landsat.last_name,
+                                       'nubes_escena': landsat.newesc['Clouds']['cloud_scene'],
+                                       'nubes_land': landsat.newesc['Clouds']['land cloud cover'],
+                                       'flood_PN': 15214}
+    
+                        archivo_adjunto = landsat.qk_name
+                        proceso_finalizado(info_escena, archivo_adjunto)
+                    
+                    except Exception as e:
+                        print(f"Error extracting scene {sc}: {e}")     
+    
+                    # else:
+                    #     continue
             
             
         except Exception as e:
@@ -92,7 +137,7 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
             # Now as default we're going to process the new scene we have to make it in the exception part because lxplore throws an error no matter how
             if process == True:
 
-                print('Vamos a descomprimir', sc)  
+                print('Vamos a descomprimir', sc, 'estamos en el except')  
                 
                 sc_tar = os.path.join(output_dir, sc + '.tar')
                 sr2 = os.path.split(output_dir)[0]
@@ -130,7 +175,7 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
                                    'nubes_land': landsat.newesc['Clouds']['land cloud cover'],
                                    'flood_PN': 15214}
 
-                    archivo_adjunto = '/media/diego/Datos4/EBD/Protocolo_v2_2024/sr2/LC08_L2SP_202034_20130622_20200912_02_T1/LC08_L2SP_202034_20130622_20200912_02_T1_Quicklook'
+                    archivo_adjunto = landsat.qk_name
                     proceso_finalizado(info_escena, archivo_adjunto)
                 
                 except Exception as e:
