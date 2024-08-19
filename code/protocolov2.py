@@ -185,6 +185,9 @@ class Landsat:
         #print(url_base)
         print('Landsat iniciada con éxito') 
         
+        # Creamos el parámetro nubes en PN 
+        self.pn_cover = None
+
         #Creamos el json para instarlo en la base de datos MongoDB
         self.newesc = {'_id': self.last_name, 
                        'usgs_id': self.mtl['LANDSAT_SCENE_ID'], 
@@ -282,7 +285,7 @@ class Landsat:
         clouds = float(cloud_msk.size * 900)
         #print(clouds)
         PN = 533740500 
-        pn_cover = round(100 - (clouds/PN) * 100, 2)
+        self.pn_cover = round(100 - (clouds/PN) * 100, 2)
         ds = None
         cloud = None
         cloud_msk = None
@@ -290,12 +293,12 @@ class Landsat:
 
         try:
 
-            db.update_one({'_id': self.last_name}, {'$set':{'Clouds.cloud_PN': pn_cover}},  upsert=True)
+            db.update_one({'_id': self.last_name}, {'$set':{'Clouds.cloud_PN': self.pn_cover}},  upsert=True)
 
         except Exception as e:
             print("Unexpected error:", type(e), e)
 
-        print("El porcentaje de nubes en el Parque Nacional es de " + str(pn_cover))
+        print("El porcentaje de nubes en el Parque Nacional es de " + str(self.pn_cover))
 
 
     def remove_masks(self):
