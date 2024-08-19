@@ -9,8 +9,8 @@ def enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto=None):
     # Configura los detalles del servidor SMTP de Gmail y las credenciales
     servidor_smtp = 'smtp.gmail.com'
     puerto_smtp = 587
-    correo_remitente = 'digd.geografo@gmail.com'
-    contraseña_remitente = 'mijt axne aznd kdvq'
+    correo_remitente = 'lastebd.protocolo.vlab@gmail.com'
+    contraseña_remitente = 'axyr tkwi fvkv kkfd'
 
     # Crea el objeto de mensaje
     mensaje = MIMEMultipart()
