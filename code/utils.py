@@ -51,15 +51,18 @@ def proceso_finalizado(info_escena, archivo_adjunto=None):
     destinatarios = ['digd.geografo@gmail.com']
     asunto = 'Nueva escena Landsat procesada'
     cuerpo = f"""
-    Hola equipo,
+    Hola equipo LAST,
 
-    Soy el bot del Protocolo de Dieguito (de todos los bots, sin duda el más bonito). Este es un mail automático 
+    Soy el bot del Protocolo de Dieguito (de todos los bots sin duda el más bonito). 
+    
+    Este es un mail automático 
     para informaros de que la escena {info_escena['escena']} ha sido procesada exitosamente. 
     
     Detalles de la escena:
 
     - Nubes escena: {info_escena['nubes_escena']}
     - Nubes escena tierra: {info_escena['nubes_land']}
+    - Nubes Parque nacional: {info_escena['nubes_Doñana']}
     - Inundación Marisma: {info_escena['flood_PN']}
     
     Seguiremos informando,
