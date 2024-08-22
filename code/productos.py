@@ -133,10 +133,15 @@ class Product(object):
         fmask = os.path.join(self.water_masks, 'fmask_202_34.tif')
         with rasterio.open(fmask) as fmask:
             FMASK = fmask.read()
+
+        ndwi = os.path.join(self.water_masks, 'ndwi_p99_202_34.tif')
+        with rasterio.open(ndwi) as ndwi:
+            NDWI = ndwi.read()
+
+        mndwi = os.path.join(self.water_masks, 'mndwi_p99_202_34.tif')
+        with rasterio.open(mndwi) as mndwi:
+            MNDWI = mndwi.read()
         
-        with rasterio.open(waterMask) as wmask:
-            WMASK = wmask.read()
-                        
         with rasterio.open(self.fmask) as fmask:
             FMASK = fmask.read()
             
