@@ -28,6 +28,7 @@ class Product(object):
         self.nor = ruta_nor
         self.productos = os.path.join(self.raiz, 'pro')
         self.data = os.path.join(self.raiz, 'data')
+        self.water_masks = os.path.join(self.data, 'water_mask_pv2')
         self.temp = os.path.join(self.raiz, 'temp')
         os.makedirs(self.temp, exist_ok=True)
         
@@ -113,10 +114,25 @@ class Product(object):
         
         
     def flood(self):
+
+        """Aquí está la clave de todo. Tenemos que abrir un montón de rasters para poder ir aplicando condiciones """
         
         waterMask = os.path.join(self.data, 'water_mask_turb.tif')
         outfile = os.path.join(self.productos, self.escena + '_flood.tif')
         print(outfile)
+
+        # Abrimos los rasters
+        dtm = os.path.join(self.water_masks, 'dtm_202_34.tif')
+        with rasterio.open(dtm) as dtm:
+            DTM = dtm.read()
+
+        slope = os.path.join(self.water_masks, 'slope_202_34.tif')
+        with rasterio.open(slope) as slope:
+            SLOPE = slope.read()
+            
+        fmask = os.path.join(self.water_masks, 'fmask_202_34.tif')
+        with rasterio.open(fmask) as fmask:
+            FMASK = fmask.read()
         
         with rasterio.open(waterMask) as wmask:
             WMASK = wmask.read()
