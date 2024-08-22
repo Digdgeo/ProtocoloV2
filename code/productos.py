@@ -141,9 +141,26 @@ class Product(object):
         mndwi = os.path.join(self.water_masks, 'mndwi_p99_202_34.tif')
         with rasterio.open(mndwi) as mndwi:
             MNDWI = mndwi.read()
-        
+
+        cobveg = os.path.join(self.water_masks, 'cob_veg_202_34.tif')
+        with rasterio.open(cobveg) as cobveg:
+            COBVEG = cobveg.read()
+
+        ndvi_p10 = os.path.join(self.water_masks, 'ndvi_p10_202_34.tif')
+        with rasterio.open(ndvi_p10) as ndvi_p10:
+            NDVIP10 = ndvi_p10.read()
+
+        ndvi_mean = os.path.join(self.water_masks, 'ndvi_mean_202_34.tif')
+        with rasterio.open(ndvi_mean) as ndvi_mean:
+            NDVIMEAN = ndvi_mean.read()
+
+        # QUEDAN LOS NDVIS Y LA ALTURA DE LA VEGETACION Y LOS PROPIOS DE CADA ESCENA: FMASK ESCENA Y HILLSHADE
+        # MAS LA BANDA DEL SWIR1
         with rasterio.open(self.fmask) as fmask:
             FMASK = fmask.read()
+
+        with rasterio.open(self.hillshade) as hillsh:
+            HILLSH = hillsh.read()
             
         with rasterio.open(self.swir1) as swir1:
             SWIR1 = swir1.read()
@@ -160,19 +177,19 @@ class Product(object):
             dst.write(flood.astype(rasterio.ubyte))
             
         #Insertamos la cobertura de nubes en la BD
-        connection = pymongo.MongoClient("mongodb://localhost")
-        db=connection.teledeteccion
-        landsat = db.landsat
+        # connection = pymongo.MongoClient("mongodb://localhost")
+        # db=connection.teledeteccion
+        # landsat = db.landsat
         
         
         try:
         
-            landsat.update_one({'_id':self.escena}, {'$set':{'Productos': ['Flood']}},  upsert=True)
+            db.update_one({'_id':self.escena}, {'$set':{'Productos': ['Flood']}},  upsert=True)
             
         except Exception as e:
             print("Unexpected error:", type(e), e)
             
-        print('Fllod Mask Generada')
+        print('Flood Mask Generada')
         
         
         
