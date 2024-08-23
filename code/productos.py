@@ -37,6 +37,25 @@ class Product(object):
         self.pro_escena = os.path.join(self.pro, self.escena)
         os.makedirs(self.pro_escena, exist_ok=True)
 
+        self.ndvi_escena = None
+        self.flood = None
+
+        # Tenemos que definir el sensor para coger los valores adecuados de Fmask
+        if 'oli' in self.escena:
+            self.sensor = 'OLI'
+        elif 'etm' in self.escena:
+            self.sensor = 'ETM+'
+        elif 'l5tm' in self.escena:
+            self.sensor = 'TM'
+        else:
+            print('what f* kind of satellite are you trying to work with?')
+
+        # Mascara de nuebes. Hay que hacerlo así porque sabe dios por qué ^!·/&"! los valores no son los mismos en OLI que en ETM+ y TM
+        if self.sensor == 'OLI':
+            self.cloud_mask_values = [21824, 21952]
+        else:
+            self.cloud_mask_values = [5440, 5504]
+
         for i in os.listdir(self.nor_escena):
             if re.search('tif$', i):
                 # Verificamos si el archivo es 'fmask' o 'hillshade'
@@ -82,8 +101,8 @@ class Product(object):
         
     def ndvi(self):
 
-        outfile = os.path.join(self.pro_escena, self.escena + '_ndvi_.tif')
-        print(outfile)
+        self.ndvi_escena = os.path.join(self.pro_escena, self.escena + '_ndvi_.tif')
+        print(self.ndvi_escena)
         
         with rasterio.open(self.nir) as nir:
             NIR = nir.read()
@@ -100,7 +119,7 @@ class Product(object):
         profile.update(nodata=-9999)
         profile.update(dtype=rasterio.float32)
 
-        with rasterio.open(outfile, 'w', **profile) as dst:
+        with rasterio.open(self.ndvi_escena, 'w', **profile) as dst:
             dst.write(ndvi.astype(rasterio.float32))
                     
         try:
@@ -113,13 +132,12 @@ class Product(object):
         print('NDVI Generado')
         
         
-        
-    def flood(self):
+    def flood_(self):
         
         """Calcula la máscara de inundación con base en los criterios especificados"""
     
-        outfile = os.path.join(self.pro_escena, self.escena + '_flood.tif')
-        print(outfile)
+        self.flood = os.path.join(self.pro_escena, self.escena + '_flood.tif')
+        print(self.flood)
     
         # Abrimos los rasters
         dtm_path = os.path.join(self.water_masks, 'dtm_202_34.tif')
@@ -194,7 +212,7 @@ class Product(object):
 
             # Guardamos el resultado final
             with rasterio.open(
-                    outfile,
+                    self.flood,
                     'w',
                     driver='GTiff',
                     height=water_mask.shape[0],
@@ -208,7 +226,7 @@ class Product(object):
             ) as dst:
                 dst.write(water_mask, 1)
     
-        print(f'Máscara de agua guardada en: {outfile}')
+        print(f'Máscara de agua guardada en: {self.flood}')
 
 
         try:
@@ -220,13 +238,13 @@ class Product(object):
         
         
         
-    def turbidity(self, flood):
+    def turbidity(self):
         
-        waterMask = os.path.join(self.data, 'water_mask_turb.tif')
-        outfile = os.path.join(self.productos, self.escena + '_turbidity.tif')
+        waterMask = os.path.join(self.water_masks, 'water_mask_turb.tif')
+        outfile = os.path.join(self.pro_escena, self.escena + '_turbidity.tif')
         print(outfile)
         
-        with rasterio.open(flood) as flood:
+        with rasterio.open(self.flood) as flood:
             FLOOD = flood.read()
         
         with rasterio.open(waterMask) as wmask:
@@ -235,31 +253,31 @@ class Product(object):
         with rasterio.open(self.blue) as blue:
             BLUE = blue.read()
             BLUE = np.where(BLUE == 0, 1, BLUE)
-            BLUE = np.true_divide(BLUE, 10000)
+            #BLUE = np.true_divide(BLUE, 10000)
                         
         with rasterio.open(self.green) as green:
             GREEN = green.read()
             GREEN = np.where(GREEN == 0, 1, GREEN)
-            GREEN = np.true_divide(GREEN, 10000)
+            #GREEN = np.true_divide(GREEN, 10000)
             GREEN_R = np.where((GREEN<0.1), 0.1, GREEN)
             GREEN_RECLASS = np.where((GREEN_R>=0.4), 0.4, GREEN_R)
 
         with rasterio.open(self.red) as red:
             RED = red.read()
             RED = np.where(RED == 0, 1, RED)
-            RED = np.true_divide(RED, 10000)
+            #RED = np.true_divide(RED, 10000)
             RED_RECLASS = np.where((RED>=0.2), 0.2, RED)
             
         with rasterio.open(self.nir) as nir:
             NIR = nir.read()
             NIR = np.where(NIR == 0, 1, NIR)
-            NIR = np.true_divide(NIR, 10000)
+            #NIR = np.true_divide(NIR, 10000)
             NIR_RECLASS = np.where((NIR>0.5), 0.5, NIR)
             
         with rasterio.open(self.swir1) as swir1:
             SWIR1 = swir1.read()
             SWIR1 = np.where(SWIR1 == 0, 1, SWIR1)
-            SWIR1 = np.true_divide(SWIR1, 10000)
+            #SWIR1 = np.true_divide(SWIR1, 10000)
             SWIR_RECLASS = np.where((SWIR1>=0.09), 0.9, SWIR1)
         
         
@@ -276,24 +294,21 @@ class Product(object):
         
         
         TURBIDEZ = np.where(((FLOOD == 1) & (WMASK == 1)), marisma, 
-                             np.where(((FLOOD == 1) & (WMASK == 2)), rio, 0))
+                             np.where(((FLOOD == 1) & (WMASK == 2)), rio, -9999))
+
+        TURBIDEZ[SWIR1 == -9999] = -9999
+        
         
         profile = swir1.meta
-        profile.update(nodata=0)
+        profile.update(nodata=-9999)
         profile.update(dtype=rasterio.float32)
                              
         with rasterio.open(outfile, 'w', **profile) as dst:
-            dst.write(TURBIDEZ.astype(rasterio.float32))
-            
-        #Insertamos la cobertura de nubes en la BD
-        connection = pymongo.MongoClient("mongodb://localhost")
-        db=connection.teledeteccion
-        landsat = db.landsat
-        
+            dst.write(TURBIDEZ.astype(rasterio.float32))        
         
         try:
         
-            landsat.update_one({'_id':self.escena}, {'$set':{'Productos': ['Turbidity']}},  upsert=True)
+            db.update_one({'_id':self.escena}, {'$set':{'Productos': ['Turbidity']}},  upsert=True)
             
         except Exception as e:
             print("Unexpected error:", type(e), e)
@@ -301,12 +316,16 @@ class Product(object):
         print('Turbidity Mask Generada')
 
 
-    def depth(self, flood, septb4, septwmask):
-
-        outfile = os.path.join(self.productos, self.escena + '_depth_.tif')
+    def depth(self):
+        
+        # Abrimos las bandas necesarias para correr el algoritmo
+        septb4 = os.path.join(self.water_masks, '20230930l9oli202_34_grn2_nir_b5.tif')
+        septwmask = os.path.join(self.water_masks, '20230930l9oli202_34_flood.tif')
+        
+        outfile = os.path.join(self.pro_escena, self.escena + '_depth_.tif')
         print(outfile)
 
-        with rasterio.open(flood) as flood:
+        with rasterio.open(self.flood) as flood:
             FLOOD = flood.read()
             
         with rasterio.open(septb4) as septb4:
@@ -314,7 +333,7 @@ class Product(object):
             SEPTB4 = septb4.read()
                         
             #En reflectividades
-            SEPTB4_REF = np.true_divide(SEPTB4, 306)
+            #SEPTB4_REF = np.true_divide(SEPTB4, 306)
             SEPTB4_REF = np.where(SEPTB4 >= 0.830065359, 0.830065359, SEPTB4)
         
         with rasterio.open(septwmask) as septwater:
@@ -323,10 +342,10 @@ class Product(object):
         #Banda 1
         with rasterio.open(self.blue) as blue:
             BLUE = blue.read()
-            BLUE = np.where(BLUE >= 50, 50, BLUE)
+            BLUE = np.where(BLUE >= 0.2, 0.2, BLUE)
 
             #Blue en reflectividad
-            BLUE_REF = np.true_divide(BLUE, 398)
+            #BLUE_REF = np.true_divide(BLUE, 398)
             
             
         #Banda 2
@@ -334,7 +353,7 @@ class Product(object):
             GREEN = green.read()
             
             #Green en reflectivdiad
-            GREEN_REF = np.true_divide(GREEN, 401) #
+            #GREEN_REF = np.true_divide(GREEN, 401) #
             
         
         #Banda 4
@@ -342,7 +361,7 @@ class Product(object):
             NIR = nir.read()
             
             #NIR en reflectividad
-            NIR_REF = np.true_divide(NIR, 422)
+            #NIR_REF = np.true_divide(NIR, 422)
             
         
         #Banda 5
@@ -350,11 +369,11 @@ class Product(object):
             SWIR1 = swir1.read()
             
             #SWIR1 en reflecrtividad
-            SWIR1_REF = np.true_divide(SWIR1, 324)
+            #SWIR1_REF = np.true_divide(SWIR1, 324)
             
         
         #Ratios
-        RATIO_GREEN_NIR = np.true_divide(GREEN_REF, NIR_REF)
+        RATIO_GREEN_NIR = np.true_divide(GREEN, NIR)
         RATIO_GREEN_NIR = np.where(RATIO_GREEN_NIR >= 2.5, 2.5, RATIO_GREEN_NIR)
         RATIO_NIR_SEPTNIR = np.true_divide(NIR, SEPTB4)           
         
@@ -363,17 +382,19 @@ class Product(object):
         a = 5.293739862 + (-0.038684824 * BLUE) + (0.02826867 * SWIR1) + (-0.007525455 * SEPTB4) + \
             (1.023724916 * RATIO_GREEN_NIR) + (-1.041844944 * RATIO_NIR_SEPTNIR)
         
-        DEPTH = np.exp(a) - 0.01
+        a_safe = np.where(a > 50, 50, a)
+        
+        DEPTH = np.exp(a_safe) - 0.01
         
         #PASAR A NODATA EL AGUA DE SEPTIEMBRE!!!!
         
         #Se podría pasar directamente a SWIR1 <= 53
-        DEPTH_ = np.where((FLOOD == 1) & (SEPTWMASK == 0), DEPTH, 0)
+        DEPTH_ = np.where((FLOOD == 1) & (SEPTWMASK == 0), DEPTH, -9999)
 
         profile = swir1.meta
-        profile.update(nodata=0)
+        profile.update(nodata=-9999)
         profile.update(dtype=rasterio.float32)
-        profile.update(driver='GTiff')
+        #profile.update(driver='GTiff')
 
         with rasterio.open(outfile, 'w', **profile) as dst:
             dst.write(DEPTH_.astype(rasterio.float32))
