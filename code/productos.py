@@ -94,6 +94,7 @@ class Product(object):
         num = NIR.astype(float)-RED.astype(float)
         den = NIR+RED
         ndvi = np.true_divide(num, den)
+        ndvi[NIR == -9999] = -9999
                 
         profile = nir.meta
         profile.update(nodata=-9999)
@@ -114,82 +115,108 @@ class Product(object):
         
         
     def flood(self):
-
-        """Aquí está la clave de todo. Tenemos que abrir un montón de rasters para poder ir aplicando condiciones """
         
-        waterMask = os.path.join(self.data, 'water_mask_turb.tif')
-        outfile = os.path.join(self.productos, self.escena + '_flood.tif')
+        """Calcula la máscara de inundación con base en los criterios especificados"""
+    
+        outfile = os.path.join(self.pro_escena, self.escena + '_flood.tif')
         print(outfile)
-
+    
         # Abrimos los rasters
-        dtm = os.path.join(self.water_masks, 'dtm_202_34.tif')
-        with rasterio.open(dtm) as dtm:
-            DTM = dtm.read()
-
-        slope = os.path.join(self.water_masks, 'slope_202_34.tif')
-        with rasterio.open(slope) as slope:
-            SLOPE = slope.read()
+        dtm_path = os.path.join(self.water_masks, 'dtm_202_34.tif')
+        slope_path = os.path.join(self.water_masks, 'slope_202_34.tif')
+        fmask_path = os.path.join(self.water_masks, 'fmask_202_34.tif')
+        ndwi_path = os.path.join(self.water_masks, 'ndwi_p99_202_34.tif')
+        mndwi_path = os.path.join(self.water_masks, 'mndwi_p99_202_34.tif')
+        cobveg_path = os.path.join(self.water_masks, 'cob_veg_202_34.tif')
+        ndvi_p10_path = os.path.join(self.water_masks, 'ndvi_p10_202_34.tif')
+        ndvi_mean_path = os.path.join(self.water_masks, 'ndvi_mean_202_34.tif')
+    
+        with rasterio.open(dtm_path) as dtm, \
+             rasterio.open(slope_path) as slope, \
+             rasterio.open(fmask_path) as fmaskw, \
+             rasterio.open(ndwi_path) as ndwi, \
+             rasterio.open(mndwi_path) as mndwi, \
+             rasterio.open(cobveg_path) as cobveg, \
+             rasterio.open(ndvi_p10_path) as ndvi_p10, \
+             rasterio.open(ndvi_mean_path) as ndvi_mean, \
+             rasterio.open(self.ndvi_escena) as ndvi_scene, \
+             rasterio.open(self.fmask) as fmask_scene, \
+             rasterio.open(self.hillshade) as hillsh, \
+             rasterio.open(self.swir1) as swir1:
             
-        fmask = os.path.join(self.water_masks, 'fmask_202_34.tif')
-        with rasterio.open(fmask) as fmask:
-            FMASK = fmask.read()
+            DTM = dtm.read(1)
+            SLOPE = slope.read(1)
+            FMASKW = fmaskw.read(1)
+            NDWI = ndwi.read(1)
+            MNDWI = mndwi.read(1)
+            COBVEG = cobveg.read(1)
+            NDVIP10 = ndvi_p10.read(1)
+            NDVIMEAN = ndvi_mean.read(1)
+            NDVISCENE = ndvi_scene.read(1)
+            FMASK_SCENE = fmask_scene.read(1)
+            HILLSHADE = hillsh.read(1)
+            SWIR1 = swir1.read(1)
+    
+            # Generamos la máscara de agua
+            water_mask = (SWIR1 < 0.12) #& ((DTM <= 5) | (MNDWI >= 0))
 
-        ndwi = os.path.join(self.water_masks, 'ndwi_p99_202_34.tif')
-        with rasterio.open(ndwi) as ndwi:
-            NDWI = ndwi.read()
+            #water_mask = (SWIR1 < 0.12) & (DTM <= 5)
 
-        mndwi = os.path.join(self.water_masks, 'mndwi_p99_202_34.tif')
-        with rasterio.open(mndwi) as mndwi:
-            MNDWI = mndwi.read()
+            # Aplicamos la condición de pendiente
+            slope_condition = (SLOPE > 8) & ~((NDWI > 0.25) | (MNDWI > 0.8))
+            water_mask[slope_condition] = 0
 
-        cobveg = os.path.join(self.water_masks, 'cob_veg_202_34.tif')
-        with rasterio.open(cobveg) as cobveg:
-            COBVEG = cobveg.read()
+             # Excluimos valores nodata del cálculo del percentil
+            valid_hillshade = HILLSHADE[HILLSHADE != -9999]
+            shadow_threshold = np.percentile(valid_hillshade, 30)
+            # Aplicamos la condición de sombras (Hillshade)
+            shadow_condition = HILLSHADE < shadow_threshold
+            water_mask[shadow_condition] = 0
 
-        ndvi_p10 = os.path.join(self.water_masks, 'ndvi_p10_202_34.tif')
-        with rasterio.open(ndvi_p10) as ndvi_p10:
-            NDVIP10 = ndvi_p10.read()
+            # Aplicamos la condición de NDVI
+            ndvi_condition = (NDVIP10 > 0.35) & (NDVIMEAN > 0.55)
+            water_mask[ndvi_condition] = 0
 
-        ndvi_mean = os.path.join(self.water_masks, 'ndvi_mean_202_34.tif')
-        with rasterio.open(ndvi_mean) as ndvi_mean:
-            NDVIMEAN = ndvi_mean.read()
+            # Aplicamos la condición de CobVeg
+            if self.sensor == 'OLI':
+                cobveg_condition = (COBVEG > 75)
+                water_mask[cobveg_condition] = 0
 
-        # QUEDAN LOS NDVIS Y LA ALTURA DE LA VEGETACION Y LOS PROPIOS DE CADA ESCENA: FMASK ESCENA Y HILLSHADE
-        # MAS LA BANDA DEL SWIR1
-        with rasterio.open(self.fmask) as fmask:
-            FMASK = fmask.read()
+            # Aplicamos la condición de NDVI de la escena
+            ndvi_scene_condition = ((NDVISCENE > 0.65) & (DTM > 0))
+            water_mask[ndvi_scene_condition] = 0
 
-        with rasterio.open(self.hillshade) as hillsh:
-            HILLSH = hillsh.read()
-            
-        with rasterio.open(self.swir1) as swir1:
-            SWIR1 = swir1.read()
-            
+            # Aplicamos la condición para nubes y sombras de nubes usando np.where
+            water_mask = np.where(~np.isin(FMASK_SCENE, self.cloud_mask_values), 2, water_mask)
 
-        flood = np.where(((FMASK != 2) & (FMASK != 4)) & ((SWIR1 != 0) & (SWIR1 <= 1200)) & (WMASK > 0), 1, 0)
-        
-        
-        profile = swir1.meta
-        profile.update(nodata=0)
-        profile.update(dtype=rasterio.ubyte)
+            # Aplicamos NoData (-9999) al marco exterior
+            water_mask[SWIR1 == -9999] = -9999
 
-        with rasterio.open(outfile, 'w', **profile) as dst:
-            dst.write(flood.astype(rasterio.ubyte))
-            
-        #Insertamos la cobertura de nubes en la BD
-        # connection = pymongo.MongoClient("mongodb://localhost")
-        # db=connection.teledeteccion
-        # landsat = db.landsat
-        
-        
+            # Guardamos el resultado final
+            with rasterio.open(
+                    outfile,
+                    'w',
+                    driver='GTiff',
+                    height=water_mask.shape[0],
+                    width=water_mask.shape[1],
+                    count=1,
+                    dtype='int16',  # Aseguramos que el dtype es int16 para manejar el valor NoData correctamente
+                    crs=dtm.crs,
+                    transform=dtm.transform,
+                    compress='lzw',
+                    nodata=-9999  # Especificamos el valor NoData
+            ) as dst:
+                dst.write(water_mask, 1)
+    
+        print(f'Máscara de agua guardada en: {outfile}')
+
+
         try:
         
             db.update_one({'_id':self.escena}, {'$set':{'Productos': ['Flood']}},  upsert=True)
             
         except Exception as e:
             print("Unexpected error:", type(e), e)
-            
-        print('Flood Mask Generada')
         
         
         
