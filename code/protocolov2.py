@@ -191,10 +191,10 @@ class Landsat:
         self.pn_cover = None
         #Creamos el json para instarlo en la base de datos MongoDB
         self.newesc = {'_id': self.last_name, 
-                       'usgs_id': self.mtl['LANDSAT_SCENE_ID'], 
-                       'tier_id': self.mtl['LANDSAT_PRODUCT_ID'],
-                           'lpgs': self.mtl['PROCESSING_SOFTWARE_VERSION'],
-                       'category': self.mtl['COLLECTION_CATEGORY'],
+                       'usgs_id': self.mtl['LANDSAT_SCENE_ID'][1:-1], 
+                       'tier_id': self.mtl['LANDSAT_PRODUCT_ID'][1:-1],
+                           'lpgs': self.mtl['PROCESSING_SOFTWARE_VERSION'][1:-1],
+                       'category': self.mtl['COLLECTION_CATEGORY'][1:-1],
                        'Clouds': {'cloud_scene': float(self.mtl['CLOUD_COVER']),
                                  'land cloud cover': float(self.mtl['CLOUD_COVER_LAND'])},
                            'Info': {'Tecnico': 'LAST-EBD Auto', 
