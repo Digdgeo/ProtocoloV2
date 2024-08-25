@@ -1,6 +1,21 @@
-import os, shutil, re, time, subprocess, pandas, rasterio, sys, urllib, fiona, sqlite3, math, pymongo
+import os
+import shutil
+import re
+import time
+import subprocess
+import pandas
+import rasterio
+import sys
+import urllib
+import fiona
+import sqlite3
+import math
+import pymongo
 import numpy as np
+import pandas as pd
+import geopandas as gpd
 import matplotlib.pyplot as plt
+from rasterio.features import geometry_mask
 from osgeo import gdal, gdalconst
 from datetime import datetime, date
 
@@ -41,6 +56,8 @@ class Product(object):
         self.flood_escena = None
         self.turbidity_escena = None
         self.depth_escena = None
+
+        self.recintos = os.path.join(self.data, 'Recintos_Marisma.shp')
 
         # Tenemos que definir el sensor para coger los valores adecuados de Fmask
         if 'oli' in self.escena:
@@ -411,9 +428,92 @@ class Product(object):
         print(f'Imagen de profundida guardada en: {self.depth_escena}')
 
 
+    def get_flood_surface(self):
+        
+        # Cargar el raster de la máscara de agua
+        with rasterio.open(self.flood_escena) as src:
+            raster_data = src.read(1)  # Leer la primera banda
+            raster_transform = src.transform  # Obtener la transformación del raster
+            raster_crs = src.crs  # Obtener el sistema de referencia del raster
+    
+        # Cargar el shapefile de las zonas de marisma
+        zonas_marisma = gpd.read_file(self.recintos)
+        zonas_marisma = zonas_marisma.to_crs(raster_crs)  # Reproyectar al CRS del raster si es necesario
+    
+        #return raster_data, raster_transform, zonas_marisma
+        # Crear un DataFrame para almacenar los resultados
+        resultados = []
+    
+        for index, row in zonas_marisma.iterrows():
+            nombre = row['Nombre']
+            geom = row['geometry']
+    
+            # Crear una máscara para el polígono actual
+            mask = geometry_mask([geom], transform=raster_transform, invert=True, out_shape=raster_data.shape)
+    
+            # Calcular la superficie inundada
+            superficie_inundada = ((raster_data[mask] == 1).sum() * raster_transform[0] ** 2) / 10000  # Asumiendo que el valor 1 representa agua
+    
+            # Añadir los resultados al DataFrame
+            resultados.append({
+                'nombre': nombre,
+                'superficie_inundada': superficie_inundada
+            })
+    
+        resultados_df = pd.DataFrame(resultados)
+    
+        # Guardar los resultados en un archivo CSV (opcional)
+        resultados_df.to_csv(os.path.join(self.pro_escena, 'superficie_inundada.csv'), index=False)
+    
+        #return resultados_df
+        
+        # Convertir el DataFrame en un diccionario
+
+        inundacion_dict = resultados_df.set_index('nombre')['superficie_inundada'].to_dict()
+        
+        # Supongamos que 'self.escena' es el ID del documento en MongoDB
+        #document_id = self.escena
+        
+        # Encuentra el documento por su _id
+        documento = db.find_one({"_id": self.escena})
+        
+        # Si el documento tiene un campo "Productos"
+        if documento and "Productos" in documento:
+            productos = documento["Productos"]
+            
+            # Verifica si "Flood" ya existe en la lista "Productos"
+            flood_exists = False
+            for index, producto in enumerate(productos):
+                if producto == "Flood":
+                    # Reemplaza "Flood" con un diccionario
+                    productos[index] = {"Flood": inundacion_dict}
+                    flood_exists = True
+                    break
+            
+            # Si "Flood" no existe, añádelo como un nuevo diccionario
+            if not flood_exists:
+                productos.append({"Flood": inundacion_dict})
+            
+            # Actualiza el documento en la base de datos con la nueva lista "Productos"
+            db.update_one(
+                {"_id": self.escena},
+                {"$set": {"Productos": productos}}
+            )
+        else:
+            # Si el documento no tiene un campo "Productos", lo creas y añades "Flood"
+            db.update_one(
+                {"_id": self.escena},
+                {"$set": {"Productos": [{"Flood": inundacion_dict}]}}
+            )
+        
+        print(f"Superficie inundada para la escena {self.escena} ha sido actualizada en MongoDB.")
+
+
+
     def run(self):
 
         self.ndvi()
         self.flood()
         self.turbidity()
         self.depth()
+        self.get_flood_surface()
