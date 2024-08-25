@@ -17,19 +17,7 @@ from datetime import datetime
 from scipy import ndimage
 from scipy.stats import linregress
 
-# Mongo Part!
-# from pymongo.mongo_client import MongoClient
-# from pymongo.server_api import ServerApi
-
-# uri = "mongodb+srv://digdgeografo:ZUN0GJg1Iz4QeAI5@landsat.adtvxqn.mongodb.net/?retryWrites=true&w=majority&appName=Landsat"
-
-# #Create a new client and connect to the server
-# client = MongoClient(uri, server_api=ServerApi('1'))
-
-# # Database Landsat
-# db = client.Satelites.Landsat
-
-
+# MongoDB Database
 from pymongo import MongoClient
 client = MongoClient()
 
@@ -772,4 +760,5 @@ class Landsat:
         self.coef_sr_st()
         self.normalize()
         print('Escena finalizada en', abs(t0-time.time()), 'segundos')
+        
        

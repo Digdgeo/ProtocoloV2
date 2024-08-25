@@ -126,7 +126,7 @@ class Product(object):
                     
         try:
         
-            db.update_one({'_id':self.escena}, {'$set':{'Productos': 'NDVI'}},  upsert=True)
+            db.update_one({'_id':self.escena}, {'$addToSet':{'Productos': 'NDVI'}},  upsert=True)
             
         except Exception as e:
             print("Unexpected error:", type(e), e)
@@ -231,7 +231,7 @@ class Product(object):
 
         try:
         
-            db.update_one({'_id':self.escena}, {'$set':{'Productos': 'Flood'}},  upsert=True)
+            db.update_one({'_id':self.escena}, {'$addToSet':{'Productos': 'Flood'}},  upsert=True)
             
         except Exception as e:
             print("Unexpected error:", type(e), e)
@@ -310,7 +310,7 @@ class Product(object):
         
         try:
         
-            db.update_one({'_id':self.escena}, {'$set':{'Productos': 'Turbidity'}},  upsert=True)
+            db.update_one({'_id':self.escena}, {'$addToSet':{'Productos': 'Turbidity'}},  upsert=True)
             
         except Exception as e:
             print("Unexpected error:", type(e), e)
@@ -403,7 +403,7 @@ class Product(object):
 
         try:
         
-            db.update_one({'_id':self.escena}, {'$set':{'Productos': 'Depth'}},  upsert=True)
+            db.update_one({'_id':self.escena}, {'$addToSet':{'Productos': 'Depth'}},  upsert=True)
             
         except Exception as e:
             print("Unexpected error:", type(e), e)
