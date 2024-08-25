@@ -517,8 +517,10 @@ class Product(object):
 
     def run(self):
 
+        print('comenzando con los productos...')
         self.ndvi()
         self.flood()
         self.turbidity()
         self.depth()
+        print('vamos al get_flood_surface')
         self.get_flood_surface()
