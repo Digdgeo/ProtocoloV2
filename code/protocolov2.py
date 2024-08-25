@@ -94,6 +94,9 @@ class Landsat:
         self.nor_escena = os.path.join(self.nor, self.last_name)
         os.makedirs(self.nor_escena, exist_ok=True)
 
+        self.pro_escena = os.path.join(self.pro, self.last_name)
+        os.makedirs(self.pro_escena, exist_ok=True)
+
         # Definimos máscaras a utilizar
         self.equilibrado = os.path.join(self.data, 'Equilibrada.tif')
         self.noequilibrado = os.path.join(self.data, 'NoEquilibrada.tif')
@@ -177,17 +180,15 @@ class Landsat:
             qk.write(urlimg)
             qk.close()
 
-            print('QuicKlook.jpeg descargado')
+            print('QuicKlook descargado')
             
         else:
             print('El Quicklook ya estaba previamente descargado')
         
         #print(url_base)
         print('Landsat iniciada con éxito') 
-        
-        # Creamos el parámetro nubes en PN 
-        self.pn_cover = None
 
+        self.pn_cover = None
         #Creamos el json para instarlo en la base de datos MongoDB
         self.newesc = {'_id': self.last_name, 
                        'usgs_id': self.mtl['LANDSAT_SCENE_ID'], 
@@ -427,7 +428,7 @@ class Landsat:
                 
                     #nombre de salida que reemplace la  _g2_ del nombre original por _gr2_
                     rs = os.path.join(self.geo_escena, i)
-                    out = os.path.join(self.rad_escena, i.replace('_g2_', '_gr2_'))
+                    out = os.path.join(self.pro_escena, i.replace('_g2_', '_'))
     
                     with rasterio.open(rs) as src:
                         RS = src.read(1)
@@ -449,7 +450,7 @@ class Landsat:
 
                     print("Copiando", banda)
                     src = rs = os.path.join(self.geo_escena, i)
-                    dst = os.path.join(self.rad_escena, i.replace('_g2_', '_gr2_'))                
+                    dst = os.path.join(self.rad_escena, i.replace('_g2_', '_'))                
                     shutil.copy(src, dst)
     
                 else:                                       
@@ -758,7 +759,7 @@ class Landsat:
             profile.update(dtype=rasterio.float32)
 
             with rasterio.open(outFile, 'w', **profile) as dst:
-                dst.write(rs.astype(rasterio.float32))    
+                dst.write(rs.astype(rasterio.float32))
 
 
     def run(self):
@@ -771,3 +772,4 @@ class Landsat:
         self.coef_sr_st()
         self.normalize()
         print('Escena finalizada en', abs(t0-time.time()), 'segundos')
+       

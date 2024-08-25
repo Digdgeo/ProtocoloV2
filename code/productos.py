@@ -38,7 +38,9 @@ class Product(object):
         os.makedirs(self.pro_escena, exist_ok=True)
 
         self.ndvi_escena = None
-        self.flood = None
+        self.flood_escena = None
+        self.turbidity_escena = None
+        self.depth_escena = None
 
         # Tenemos que definir el sensor para coger los valores adecuados de Fmask
         if 'oli' in self.escena:
@@ -129,15 +131,15 @@ class Product(object):
         except Exception as e:
             print("Unexpected error:", type(e), e)
             
-        print('NDVI Generado')
+        print(f'Ndvi guardado en: {self.ndvi_escena}')
         
-        
-    def flood_(self):
+
+    def flood(self):
         
         """Calcula la máscara de inundación con base en los criterios especificados"""
     
-        self.flood = os.path.join(self.pro_escena, self.escena + '_flood.tif')
-        print(self.flood)
+        self.flood_escena = os.path.join(self.pro_escena, self.escena + '_flood.tif')
+        #print(self.flood_escena)
     
         # Abrimos los rasters
         dtm_path = os.path.join(self.water_masks, 'dtm_202_34.tif')
@@ -212,7 +214,7 @@ class Product(object):
 
             # Guardamos el resultado final
             with rasterio.open(
-                    self.flood,
+                    self.flood_escena,
                     'w',
                     driver='GTiff',
                     height=water_mask.shape[0],
@@ -225,8 +227,6 @@ class Product(object):
                     nodata=-9999  # Especificamos el valor NoData
             ) as dst:
                 dst.write(water_mask, 1)
-    
-        print(f'Máscara de agua guardada en: {self.flood}')
 
 
         try:
@@ -235,16 +235,18 @@ class Product(object):
             
         except Exception as e:
             print("Unexpected error:", type(e), e)
-        
-        
+            
+        print(f'Máscara de agua guardada en: {self.flood_escena}')
+
+    
         
     def turbidity(self):
         
         waterMask = os.path.join(self.water_masks, 'water_mask_turb.tif')
-        outfile = os.path.join(self.pro_escena, self.escena + '_turbidity.tif')
-        print(outfile)
+        self.turbidity_escena = os.path.join(self.pro_escena, self.escena + '_turbidity.tif')
+        #print(self.turbidity_escena)
         
-        with rasterio.open(self.flood) as flood:
+        with rasterio.open(self.flood_escena) as flood:
             FLOOD = flood.read()
         
         with rasterio.open(waterMask) as wmask:
@@ -303,7 +305,7 @@ class Product(object):
         profile.update(nodata=-9999)
         profile.update(dtype=rasterio.float32)
                              
-        with rasterio.open(outfile, 'w', **profile) as dst:
+        with rasterio.open(self.turbidity_escena, 'w', **profile) as dst:
             dst.write(TURBIDEZ.astype(rasterio.float32))        
         
         try:
@@ -313,7 +315,7 @@ class Product(object):
         except Exception as e:
             print("Unexpected error:", type(e), e)
             
-        print('Turbidity Mask Generada')
+        print(f'Máscara de turbidez guardada en: {self.turbidity_escena}')
 
 
     def depth(self):
@@ -322,10 +324,10 @@ class Product(object):
         septb4 = os.path.join(self.water_masks, '20230930l9oli202_34_grn2_nir_b5.tif')
         septwmask = os.path.join(self.water_masks, '20230930l9oli202_34_flood.tif')
         
-        outfile = os.path.join(self.pro_escena, self.escena + '_depth_.tif')
-        print(outfile)
+        self.depth_escena = os.path.join(self.pro_escena, self.escena + '_depth_.tif')
+        #print(self.depth_escena)
 
-        with rasterio.open(self.flood) as flood:
+        with rasterio.open(self.flood_escena) as flood:
             FLOOD = flood.read()
             
         with rasterio.open(septb4) as septb4:
@@ -396,8 +398,22 @@ class Product(object):
         profile.update(dtype=rasterio.float32)
         #profile.update(driver='GTiff')
 
-        with rasterio.open(outfile, 'w', **profile) as dst:
+        with rasterio.open(self.depth_escena, 'w', **profile) as dst:
             dst.write(DEPTH_.astype(rasterio.float32))
 
+        try:
+        
+            db.update_one({'_id':self.escena}, {'$set':{'Productos': ['Depth']}},  upsert=True)
+            
+        except Exception as e:
+            print("Unexpected error:", type(e), e)
+            
+        print(f'Imagen de profundida guardada en: {self.depth_escena}')
 
-        print('Depth Mask Generada')
+
+    def run(self):
+
+        self.ndvi()
+        self.flood()
+        self.turbidity()
+        self.depth()
