@@ -57,7 +57,11 @@ class Product(object):
         self.turbidity_escena = None
         self.depth_escena = None
 
+        # Shape con recintos
         self.recintos = os.path.join(self.data, 'Recintos_Marisma.shp')
+        # Salida con la superficie inundada por recinto
+        #self.superficie_inundada = os.path.join(self.pro_escena, 'superficie_inundada.csv')
+        
 
         # Tenemos que definir el sensor para coger los valores adecuados de Fmask
         if 'oli' in self.escena:
@@ -430,6 +434,7 @@ class Product(object):
 
     def get_flood_surface(self):
         
+        print('Vamos a calcualr la superficie inundada para los recintos de la marisma')
         # Cargar el raster de la máscara de agua
         with rasterio.open(self.flood_escena) as src:
             raster_data = src.read(1)  # Leer la primera banda
