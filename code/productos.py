@@ -34,7 +34,7 @@ class Product(object):
         
     def __init__(self, ruta_nor):
         
-        
+        #print('comenzamos debugeando...........................')
         self.escena = os.path.split(ruta_nor)[1]
         self.raiz = os.path.split(os.path.split(ruta_nor)[0])[0]
         print(self.raiz)
@@ -522,5 +522,8 @@ class Product(object):
         self.flood()
         self.turbidity()
         self.depth()
-        print('vamos al get_flood_surface')
-        self.get_flood_surface()
+        #print('vamos al get_flood_surface')
+        try:
+            self.get_flood_surface()
+        except Exception as e:
+            print(f"Error al ejecutar get_flood_surface: {e}")

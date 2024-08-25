@@ -53,7 +53,7 @@ def proceso_finalizado(info_escena, archivo_adjunto=None):
     cuerpo = f"""
     Hola equipo LAST,
 
-    Soy el bot del Protocolo de Dieguito (de todos los bots sin duda el más bonito). 
+    Soy el bot del Protocolo de Dieguito (de todos los bots, sin duda el más bonito). 
     
     Este es un mail automático 
     para informaros de que la escena {info_escena['escena']} ha sido procesada exitosamente. 
@@ -63,7 +63,7 @@ def proceso_finalizado(info_escena, archivo_adjunto=None):
     - Nubes escena: {info_escena['nubes_escena']}
     - Nubes escena tierra: {info_escena['nubes_land']}
     - Nubes Parque nacional: {info_escena['nubes_Doñana']}
-    - Inundación Marisma: {info_escena['flood_PN']}
+    - Inundación Marisma (ha): {info_escena['flood_PN']}
     
     Seguiremos informando,
     Saludos
