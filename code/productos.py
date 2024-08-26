@@ -34,7 +34,7 @@ class Product(object):
         
     def __init__(self, ruta_nor):
         
-        #print('comenzamos debugeando...........................')
+        
         self.escena = os.path.split(ruta_nor)[1]
         self.raiz = os.path.split(os.path.split(ruta_nor)[0])[0]
         print(self.raiz)
@@ -53,6 +53,8 @@ class Product(object):
         os.makedirs(self.pro_escena, exist_ok=True)
 
         self.ndvi_escena = None
+        self.ndwi_escena = None
+        self.mndwi_escena = None
         self.flood_escena = None
         self.turbidity_escena = None
         self.depth_escena = None
@@ -153,7 +155,74 @@ class Product(object):
             print("Unexpected error:", type(e), e)
             
         print(f'Ndvi guardado en: {self.ndvi_escena}')
+
+
+    def ndwi(self):
+
+        self.ndwi_escena = os.path.join(self.pro_escena, self.escena + '_ndwi.tif')
+        #print outfile
         
+        with rasterio.open(self.nir) as nir:
+            NIR = nir.read()
+            
+        with rasterio.open(self.green) as green:
+            GREEN = green.read()
+            
+        num = GREEN-NIR
+        den = GREEN+NIR
+        ndwi = num/den
+
+        # Aplicamos NoData (-9999) al marco exterior
+        ndwi[NIR == -9999] = -9999
+            
+        profile = nir.meta
+        profile.update(dtype=rasterio.float32)
+
+        with rasterio.open(self.ndwi_escena, 'w', **profile) as dst:
+            dst.write(ndwi.astype(rasterio.float32))
+
+        try:
+        
+            db.update_one({'_id':self.escena}, {'$addToSet':{'Productos': 'NDWI'}},  upsert=True)
+            
+        except Exception as e:
+            print("Unexpected error:", type(e), e)
+
+        print(f'Ndwi guardado en: {self.ndwi_escena}')
+
+
+    def mndwi(self):
+
+        self.mndwi_escena = os.path.join(self.pro_escena, self.escena + '_mndwi.tif')
+        #print outfile
+        
+        with rasterio.open(self.swir1) as swir1:
+            SWIR1 = swir1.read()
+
+        with rasterio.open(self.green) as green:
+            GREEN = green.read()
+        
+        num = GREEN-SWIR1
+        den = GREEN+SWIR1
+        mndwi = num/den
+
+        # Aplicamos NoData (-9999) al marco exterior
+        mndwi[SWIR1 == -9999] = -9999
+        
+        profile = swir1.meta
+        profile.update(dtype=rasterio.float32)
+
+        with rasterio.open(self.mndwi_escena, 'w', **profile) as dst:
+            dst.write(mndwi.astype(rasterio.float32))
+
+        try:
+        
+            db.update_one({'_id':self.escena}, {'$addToSet':{'Productos': 'MNDWI'}},  upsert=True)
+            
+        except Exception as e:
+            print("Unexpected error:", type(e), e)
+
+        print(f'Mndwi guardado en: {self.mndwi_escena}')
 
     def flood(self):
         
@@ -181,6 +250,9 @@ class Product(object):
              rasterio.open(ndvi_p10_path) as ndvi_p10, \
              rasterio.open(ndvi_mean_path) as ndvi_mean, \
              rasterio.open(self.ndvi_escena) as ndvi_scene, \
+             rasterio.open(self.ndwi_escena) as ndwi_scene, \
+             rasterio.open(self.mndwi_escena) as mndwi_scene, \
+             rasterio.open(self.ndvi_escena) as ndvi_scene, \
              rasterio.open(self.fmask) as fmask_scene, \
              rasterio.open(self.hillshade) as hillsh, \
              rasterio.open(self.swir1) as swir1:
@@ -194,6 +266,8 @@ class Product(object):
             NDVIP10 = ndvi_p10.read(1)
             NDVIMEAN = ndvi_mean.read(1)
             NDVISCENE = ndvi_scene.read(1)
+            NDWISCENE = ndwi_scene.read(1)
+            MNDWISCENE = mndwi_scene.read(1)
             FMASK_SCENE = fmask_scene.read(1)
             HILLSHADE = hillsh.read(1)
             SWIR1 = swir1.read(1)
@@ -230,6 +304,9 @@ class Product(object):
             # Aplicamos la condición para nubes y sombras de nubes usando np.where
             water_mask = np.where(~np.isin(FMASK_SCENE, self.cloud_mask_values), 2, water_mask)
 
+            # Condición para que sean agua los pixeles que son mayores de 0 en ndwi y mndwi y agua en fmask ?
+            water_masks_condition = (NDWISCENE > 0) & (MNDWISCENE > 0) #& (FMASK_SCENE == 21952) | (FMASK_SCENE == 5504)
+            water_mask[water_masks_condition] = 1
             # Aplicamos NoData (-9999) al marco exterior
             water_mask[SWIR1 == -9999] = -9999
 
@@ -519,11 +596,10 @@ class Product(object):
 
         print('comenzando con los productos...')
         self.ndvi()
+        self.ndwi()
+        self.mndwi()
         self.flood()
         self.turbidity()
         self.depth()
-        #print('vamos al get_flood_surface')
-        try:
-            self.get_flood_surface()
-        except Exception as e:
-            print(f"Error al ejecutar get_flood_surface: {e}")
+        print('vamos al get_flood_surface')
+        self.get_flood_surface()

@@ -760,5 +760,3 @@ class Landsat:
         self.coef_sr_st()
         self.normalize()
         print('Escena finalizada en', abs(t0-time.time()), 'segundos')
-        
-       
