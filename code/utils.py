@@ -5,6 +5,8 @@ from email.mime.base import MIMEBase
 from email import encoders
 import os
 
+
+# Mails
 def enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto=None):
     # Configura los detalles del servidor SMTP de Gmail y las credenciales
     servidor_smtp = 'smtp.gmail.com'
@@ -46,7 +48,7 @@ def enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto=None):
     except Exception as e:
         print(f"Error al enviar el correo: {e}")
 
-# Supongamos que el proceso de normalización ha terminado y tienes la información de la escena
+# Mails
 def proceso_finalizado(info_escena, archivo_adjunto=None):
     destinatarios = ['digd.geografo@gmail.com']
     asunto = 'Nueva escena Landsat procesada'
@@ -73,3 +75,44 @@ def proceso_finalizado(info_escena, archivo_adjunto=None):
 
     # Enviar el correo
     enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto)
+
+
+# Hydroperiods
+def prepare_hydrop(productos_dir, output_dir, ciclo_hidrologico):
+    # Obtener el año inicial y final del ciclo hidrológico
+    year_start = int(ciclo_hidrologico.split('-')[0])
+    year_end = year_start + 1
+
+    # Definir las fechas de inicio y fin del ciclo hidrológico
+    start_date = datetime(year_start, 10, 1)
+    end_date = datetime(year_end, 9, 30)
+
+    # Crear el directorio de salida para el ciclo hidrológico si no existe
+    ciclo_output_dir = os.path.join(output_dir, f"hidroperiodo_{ciclo_hidrologico}")
+    os.makedirs(ciclo_output_dir, exist_ok=True)
+
+    # Recorrer todas las carpetas en el directorio de productos
+    for escena in os.listdir(productos_dir):
+        escena_dir = os.path.join(productos_dir, escena)
+        if os.path.isdir(escena_dir):
+            # Extraer la fecha de la escena desde el nombre del archivo (asumiendo que sigue un formato específico)
+            try:
+                # Asumiendo que la fecha de la escena está en el formato YYYYMMDD en alguna parte del nombre del archivo
+                date_str = escena.split('l')[0]
+                escena_date = datetime.strptime(date_str, "%Y%m%d")
+            except (IndexError, ValueError):
+                print(f"El nombre de la escena '{escena}' no tiene una fecha válida.")
+                continue
+
+            # Verificar si la fecha de la escena está dentro del rango del ciclo hidrológico
+            if start_date <= escena_date <= end_date:
+                # Buscar el archivo '_flood.tif' dentro de la carpeta de la escena
+                for archivo in os.listdir(escena_dir):
+                    if archivo.endswith('_flood.tif'):
+                        # Copiar el archivo al directorio del ciclo hidrológico
+                        archivo_src = os.path.join(escena_dir, archivo)
+                        archivo_dst = os.path.join(ciclo_output_dir, archivo)
+                        shutil.copy2(archivo_src, archivo_dst)
+                        print(f"Archivo '{archivo}' copiado a '{ciclo_output_dir}'")
+
+    print(f"Máscaras de inundación para el ciclo hidrológico {ciclo_hidrologico} han sido copiadas a '{ciclo_output_dir}'.")
