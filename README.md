@@ -14,3 +14,4 @@ By now all that we can say is that Magic happens in Landsat and Products classes
 * Incluir script para ejecutar el hidroperiodo (preparación de datos y llamada al script al final de la temporada)
 * Make the Docs
 * Video 
+* Check old and new water masks
