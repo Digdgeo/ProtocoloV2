@@ -289,24 +289,44 @@ class Product(object):
             water_mask[shadow_condition] = 0
 
             # Aplicamos la condición de NDVI
-            ndvi_condition = (NDVIP10 > 0.35) & (NDVIMEAN > 0.55)
+            ndvi_condition = (NDVIP10 > 0.3) & (NDVIMEAN > 0.5)
             water_mask[ndvi_condition] = 0
 
             # Aplicamos la condición de CobVeg
-            if self.sensor == 'OLI':
-                cobveg_condition = (COBVEG > 75)
-                water_mask[cobveg_condition] = 0
+            #if self.sensor == 'OLI':
+            cobveg_condition = (COBVEG > 75)
+            water_mask[cobveg_condition] = 0
 
             # Aplicamos la condición de NDVI de la escena
-            ndvi_scene_condition = ((NDVISCENE > 0.65) & (DTM > 0))
+            # ndvi_scene_condition = ((NDVISCENE > 0.60) & ((DTM == 0) | (DTM > 2.5)))
+            ndvi_scene_condition = ((NDVISCENE > 0.60) & (DTM > 2.5)) # Vamos a dejar el mar fuera a ver si entra en agua
             water_mask[ndvi_scene_condition] = 0
+
+            # Podríamos corregir así el mar con ndvis muy altos?
+            # Aqui la idea sería mandar los pixeles saturados en el mar a agua, pero podría pasar en la orilla?
+            # Normalmente a la orilla no le afecta
+            # ndvi_scene_condition_2 = ((NDVISCENE > 0.60) & (DTM == 0))
+            # water_mask[ndvi_scene_condition] = 1
 
             # Aplicamos la condición para nubes y sombras de nubes usando np.where
             water_mask = np.where(~np.isin(FMASK_SCENE, self.cloud_mask_values), 2, water_mask)
 
             # Condición para que sean agua los pixeles que son mayores de 0 en ndwi y mndwi y agua en fmask ?
-            water_masks_condition = (NDWISCENE > 0) & (MNDWISCENE > 0) #& (FMASK_SCENE == 21952) | (FMASK_SCENE == 5504)
+            # Intento de solucionar los "NoData" de agua en el mar
+            # Vamos a sumar MDNWI, NDWI y Fmask cuando es cuando es agua y si al menos dos de ellos dan valor agua el pixel pasará a ser agua
+
+            # Reclasificamos los 2 índices y Fmask
+            mndwi_r = np.where(MNDWISCENE > 0, 1, 0)
+            ndwi_r = np.where(NDWISCENE > 0, 1, 0)
+            fmask_r = np.where(FMASK_SCENE == self.cloud_mask_values[1], 1, 0)
+            # Suma de los 3
+            water_ix_sum = mndwi_r + ndwi_r + fmask_r
+                 
+            # water_masks_condition = (NDWISCENE > 0) & (MNDWISCENE > 0) #& (FMASK_SCENE == 21952) | (FMASK_SCENE == 5504)
+            # Si dos de ellos dan valor agua el pixel pasa a ser agua. Esto puede solucionar el mar y no afectar al resto
+            water_masks_condition = (water_ix_sum >= 2)
             water_mask[water_masks_condition] = 1
+                 
             # Aplicamos NoData (-9999) al marco exterior
             water_mask[SWIR1 == -9999] = -9999
 
