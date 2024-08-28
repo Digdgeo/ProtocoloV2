@@ -78,7 +78,20 @@ def proceso_finalizado(info_escena, archivo_adjunto=None):
 
 
 # Hydroperiods
-def prepare_hydrop(productos_dir, output_dir, ciclo_hidrologico):
+import os
+import shutil
+from datetime import datetime
+from pymongo import MongoClient
+
+# Conexión a la base de datos MongoDB
+client = MongoClient()
+database = client.Satelites
+db = database.Landsat
+
+# Nueva colección para hidroperiodo
+db_hidroperiodo = database.Hidroperiodo
+
+def prepare_hydrop(productos_dir, output_dir, ciclo_hidrologico, umbral_nubes):
     # Obtener el año inicial y final del ciclo hidrológico
     year_start = int(ciclo_hidrologico.split('-')[0])
     year_end = year_start + 1
@@ -88,8 +101,11 @@ def prepare_hydrop(productos_dir, output_dir, ciclo_hidrologico):
     end_date = datetime(year_end, 9, 30)
 
     # Crear el directorio de salida para el ciclo hidrológico si no existe
-    ciclo_output_dir = os.path.join(output_dir, f"hidroperiodo_{ciclo_hidrologico}")
+    ciclo_output_dir = os.path.join(output_dir, f"hidroperiodo_{ciclo_hidrologico}_{umbral_nubes")
     os.makedirs(ciclo_output_dir, exist_ok=True)
+
+    # Lista para almacenar los IDs de las escenas que cumplen con el umbral de nubes
+    escenas_validas = []
 
     # Recorrer todas las carpetas en el directorio de productos
     for escena in os.listdir(productos_dir):
@@ -106,13 +122,45 @@ def prepare_hydrop(productos_dir, output_dir, ciclo_hidrologico):
 
             # Verificar si la fecha de la escena está dentro del rango del ciclo hidrológico
             if start_date <= escena_date <= end_date:
-                # Buscar el archivo '_flood.tif' dentro de la carpeta de la escena
-                for archivo in os.listdir(escena_dir):
-                    if archivo.endswith('_flood.tif'):
-                        # Copiar el archivo al directorio del ciclo hidrológico
-                        archivo_src = os.path.join(escena_dir, archivo)
-                        archivo_dst = os.path.join(ciclo_output_dir, archivo)
-                        shutil.copy2(archivo_src, archivo_dst)
-                        print(f"Archivo '{archivo}' copiado a '{ciclo_output_dir}'")
+                # Buscar la información de la escena en la base de datos
+                escena_info = db.find_one({"_id": escena})
+                if escena_info:
+                    nubes_marismas = escena_info.get("Clouds", {}).get("cloud_PN", 0)
+
+                    # Verificar si la cobertura de nubes está dentro del umbral permitido
+                    if nubes_marismas <= umbral_nubes:
+                        # Obtener la suma de hectáreas de inundación de los recintos de marisma
+                        flood_data = escena_info.get("Productos", [])
+                        suma_ha_inundacion = 0
+
+                        for producto in flood_data:
+                            if isinstance(producto, dict) and "Flood" in producto:
+                                suma_ha_inundacion = sum(producto["Flood"].values())
+                                break
+
+                        # Buscar el archivo '_flood.tif' dentro de la carpeta de la escena
+                        for archivo in os.listdir(escena_dir):
+                            if archivo.endswith('_flood.tif'):
+                                # Copiar el archivo al directorio del ciclo hidrológico
+                                archivo_src = os.path.join(escena_dir, archivo)
+                                archivo_dst = os.path.join(ciclo_output_dir, archivo)
+                                shutil.copy2(archivo_src, archivo_dst)
+                                print(f"Archivo '{archivo}' copiado a '{ciclo_output_dir}'")
+
+                                # Añadir la escena con sus datos a la lista de escenas válidas
+                                escenas_validas.append({
+                                    "escena_id": escena,
+                                    "nubes_marismas": nubes_marismas,
+                                    "ha_inundacion": suma_ha_inundacion
+                                })
+
+    # Almacenar el ciclo hidrológico en la colección Hidroperiodo
+    hidroperiodo_id = f"hidroperiodo_{ciclo_hidrologico}_{umbral_nubes}"
+    db_hidroperiodo.update_one(
+        {"_id": hidroperiodo_id},
+        {"$set": {"escenas": escenas_validas}},
+        upsert=True
+    )
 
     print(f"Máscaras de inundación para el ciclo hidrológico {ciclo_hidrologico} han sido copiadas a '{ciclo_output_dir}'.")
+    print(f"El ciclo hidrológico {ciclo_hidrologico} ha sido registrado en la colección 'Hidroperiodo' con {len(escenas_validas)} escenas.")
