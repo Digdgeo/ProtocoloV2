@@ -16,3 +16,5 @@ By now all that we can say is that Magic happens in Landsat and Products classes
 * Video 
 * Check old and new water masks (six checked)
 * Test new thresholds and try to solve Trebujena crops
+* Add hydroperiod collection to database and the chance to filter by clouds in the preparation
+* VERY IMPORTANT: MAKE THE LUNCH SCRIPTS WITH ARGPARSE TO RUN THEM FROM CRONTAB
