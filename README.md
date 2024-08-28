@@ -11,10 +11,10 @@ By now all that we can say is that Magic happens in Landsat and Products classes
 
 ## To Do
 
-* Incluir script para ejecutar el hidroperiodo (preparación de datos y llamada al script al final de la temporada)
+* Incluir script para ejecutar el hidroperiodo (preparación de datos) (done :))
 * Make the Docs
 * Video 
-* Check old and new water masks (six checked)
+* Check old and new water masks (six checked) (done :))
 * Test new thresholds and try to solve Trebujena crops
-* Add hydroperiod collection to database and the chance to filter by clouds in the preparation
+* Add hydroperiod collection to database and the chance to filter by clouds in the preparation (done :)
 * VERY IMPORTANT: MAKE THE LUNCH SCRIPTS WITH ARGPARSE TO RUN THEM FROM CRONTAB
