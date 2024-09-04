@@ -133,7 +133,7 @@ def prepare_hydrop(productos_dir, output_dir, ciclo_hidrologico, umbral_nubes):
     end_date = datetime(year_end, 9, 30)
 
     # Crear el directorio de salida para el ciclo hidrológico si no existe
-    ciclo_output_dir = os.path.join(output_dir, f"hidroperiodo_{ciclo_hidrologico}_{umbral_nubes"})
+    ciclo_output_dir = os.path.join(output_dir, f"hidroperiodo_{ciclo_hidrologico}_{umbral_nubes}")
     os.makedirs(ciclo_output_dir, exist_ok=True)
 
     # Lista para almacenar los IDs de las escenas que cumplen con el umbral de nubes

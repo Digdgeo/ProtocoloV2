@@ -6,7 +6,7 @@ import tarfile
 import argparse
 
 # Añadimos la ruta con el código a nuestro pythonpath para poder importar la clase Landsat
-sys.path.append('/home/diego/git/ProtocoloV2/code')
+sys.path.append('/home/diego/git/ProtocoloV2/codigo')
 
 from protocolov2 import Landsat
 from productos import Product
