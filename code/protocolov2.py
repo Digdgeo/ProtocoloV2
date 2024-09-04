@@ -33,7 +33,11 @@ class Landsat:
     
     def __init__(self, ruta_escena):
         
-        """Definimos los atributos que tendrá nuestro objeto a partir del path a su carpeta"""
+        """Inicializa un objeto Landsat basado en el path de la escena.
+
+        Args:
+            ruta_escena (str): Ruta al directorio de la escena Landsat.
+        """
         
         # Definimos los paths de entrada
         self.ruta_escena = ruta_escena
@@ -203,8 +207,11 @@ class Landsat:
 
     def get_hillshade(self):
 
-        '''-----\n
-        Este metodo crea el hillshade con los parámetros de cada escena'''
+        """Genera un hillshade de la escena usando parámetros solares (azimuth y elevación solar) 
+        de los metadatos del MTL.txt.
+
+        La idea es simular las sombras reales y quitarlas de los píxeles validos en la máscara de agua.
+        """
 
         dtm = os.path.join(self.data, 'dtm_202_34.tif') #Por defecto esta en 29 y solo para la 202_34
         azimuth = self.mtl['SUN_AZIMUTH']
@@ -231,8 +238,12 @@ class Landsat:
         
     def get_cloud_pn(self):
 
-        '''-----\n
-        Este metodo recorta la fmask con el shp del Parque Nacional, para obtener la cobertura nubosa en Parque Nacional en el siguiente paso'''
+        """Calcula la cobertura de nubes dentro del Parque Nacional.
+
+        Recorta la máscara de nubes (fmask) con un shapefile del Parque Nacional 
+        para obtener la cobertura nubosa dentro de los límites del parque. 
+        Actualiza la base de datos con los porcentajes de nubes (sobre tierra y escena completa MTL.txt) y sobre Doñana.
+        """
 
         shape = os.path.join(self.data, 'Limites_PN_Donana.shp')
         crop = "-crop_to_cutline"
@@ -292,9 +303,10 @@ class Landsat:
 
     def remove_masks(self):
 
-        '''-----\n
-        Este metodo elimina la carpeta en la que hemos ido guardando las mascaras empleadas para obtener los kl y
-        la cobertura de nubes en el Parque Nacional'''
+        """Elimina las máscaras temporales generadas durante el procesamiento de nubes.
+
+        Borra los archivos de máscaras creados en el directorio 'masks' de la escena.
+        """
 
         path_masks = os.path.join(self.ruta_escena, 'masks')
         for i in os.listdir(path_masks):
@@ -308,11 +320,8 @@ class Landsat:
 
     def projwin(self):
 
-        '''2024. En este metodo vamos a darle el extent a la escena y a hacer el rename. 
-        Además de eso vamos a paovechar para aplicar los coeficientes para tener la reflectivdad 
-        y la temperatura de superficie en sus valores reales.
-        La salida será temporal y sobre ella se realizará la normalización'''
-        
+        """Aplica proyección y extensión geográfica a las bandas de la escena.
+        """        
         
         olibands = {'B1': 'cblue_b1', 'B2': 'blue_b2', 'B3': 'green_b3', 'B4': 'red_b4', 'B5': 'nir_b5', 'B6': 'swir1_b6',
                    'B7': 'swir2_b7', 'PIXEL': 'fmask', 'B10': 'lst'}
@@ -370,8 +379,11 @@ class Landsat:
                 
     def coef_sr_st(self):
 
-        '''Esta función va a aplicar los coeficientes de reflectancia y temperatura 
-        de superficie a las bandas de la escena.'''
+        """Aplica los coeficientes de reflectancia superficial y temperatura a las bandas.
+
+        Esta función toma las bandas proyectadas y ajusta los valores para que sean
+        interpretables en términos de reflectancia superficial y temperatura.
+        """
     
         #path_geo = os.path.join(self.geo, self.escena)
         #path_rad = os.path.join(self.rad, self.escena)
@@ -450,10 +462,12 @@ class Landsat:
             
     def normalize(self):
         
-        '''-----\n
-        Este metodo controla el flujo de la normalizacion, si no se llegan a obtener los coeficientes (R>0.85 
-        y N_Pixeles >= 10, va pasando hacia el siguiente nivel, hasta que se logran obtener 
-        esos valores o hasta que se llega al ultimo paso)'''
+        """Controla el proceso de normalización de las bandas.
+
+        Si no se obtienen los coeficientes requeridos (R>0.85 y N_Pixeles >= 10),
+        se itera a través de diferentes niveles hasta que se logran los valores 
+        requeridos o se alcanza el último paso.
+        """
         
         #path_rad = os.path.join(self.rad, self.escena)
                 
@@ -524,9 +538,17 @@ class Landsat:
         
     def nor1(self, banda, mascara, coef = 1):
         
-        '''-----\n
-        Este metodo busca obtiene los coeficientes necesarios para llevar a cabo la normalizacion,
-        tanto en nor1 como en nor1bis'''
+        """Busca los coeficientes necesarios para la normalización de una banda.
+
+        Args:
+            banda (str): Ruta a la banda que se va a normalizar.
+            mascara (str): Ruta a la máscara utilizada para la normalización.
+            coef (int, optional): Coeficiente utilizado para ajustar el valor de desviación típica. 
+                Por defecto es 1.
+        
+        Busca los coeficientes de regresión y realiza la primera normalización.
+        Si los coeficientes cumplen los requisitos, se guarda la normalización.
+        """
 
         print('comenzando nor1')
         
@@ -700,10 +722,17 @@ class Landsat:
                     
     def nor2l8(self, banda, slope, intercept):
     
-        '''-----\n
-        Este metodo aplica la ecuacion de la recta de regresion a cada banda (siempre que los haya podido obtener)'''
-        
-        
+        """Aplica la ecuación de regresión a la banda normalizada.
+
+        Args:
+            banda (str): Ruta de la banda que se va a ajustar.
+            slope (float): Pendiente de la regresión calculada.
+            intercept (float): Intercepto de la regresión calculada.
+
+        Genera la banda normalizada aplicando la ecuación de la recta obtenida 
+        en la regresión.
+        """
+                
         print('estamos en nor2!')
         #path_rad = os.path.join(self.rad, self.escena)
         #path_nor = os.path.join(self.nor, self.escena)
@@ -751,6 +780,13 @@ class Landsat:
 
 
     def run(self):
+
+        """Ejecuta todo el flujo de procesamiento para la escena Landsat.
+
+        Realiza la generación del hillshade, calcula la cobertura nubosa, elimina
+        máscaras temporales, proyecta las bandas, aplica coeficientes y realiza
+        la normalización completa.
+        """
         
         t0 = time.time()
         self.get_hillshade()
