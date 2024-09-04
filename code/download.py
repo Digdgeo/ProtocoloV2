@@ -24,6 +24,26 @@ db = database.Landsat
 # Download function (at the end this should be done with argparse)
 def download_landsat_scenes(username, password, latitude, longitude, days_back=15, end_date=None, process=True, max_cloud_cover=100, output_dir='/media/diego/Datos4/EBD/Protocolo_v2_2024/sr2/rar'):
     
+    """Descarga y procesa escenas Landsat de EarthExplorer.
+
+    Esta función busca escenas Landsat dentro de un rango de fechas y coordenadas proporcionadas,
+    las descarga y, si se especifica, las procesa utilizando las clases `Landsat` y `Product`.
+
+    Args:
+        username (str): Nombre de usuario para autenticación en EarthExplorer.
+        password (str): Contraseña para autenticación en EarthExplorer.
+        latitude (float): Latitud de la ubicación de interés.
+        longitude (float): Longitud de la ubicación de interés.
+        days_back (int, optional): Número de días anteriores al `end_date` para buscar escenas. Por defecto es 15.
+        end_date (str, optional): Fecha final para la búsqueda de escenas en formato 'YYYY-MM-DD'. Si no se especifica, se toma la fecha actual.
+        process (bool, optional): Si es True, las escenas descargadas serán procesadas. Por defecto es True.
+        max_cloud_cover (int, optional): Porcentaje máximo de cobertura nubosa permitido. Por defecto es 100.
+        output_dir (str, optional): Directorio donde se guardarán las escenas descargadas. Por defecto es '/media/diego/Datos4/EBD/Protocolo_v2_2024/sr2/rar'.
+
+    Returns:
+        None
+    """
+    
     # Initialize EarthExplorer and API instances
     ee = EarthExplorer(username, password)
     api = API(username, password)
