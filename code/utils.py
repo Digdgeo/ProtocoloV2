@@ -8,6 +8,16 @@ import os
 
 # Mails
 def enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto=None):
+
+    """Envía un correo electrónico con o sin archivo adjunto a los destinatarios especificados.
+
+    Args:
+        destinatarios (list): Lista de correos electrónicos de los destinatarios.
+        asunto (str): Asunto del correo electrónico.
+        cuerpo (str): Cuerpo del mensaje del correo electrónico.
+        archivo_adjunto (str, optional): Ruta al archivo adjunto. Por defecto es None.
+    """
+
     # Configura los detalles del servidor SMTP de Gmail y las credenciales
     servidor_smtp = 'smtp.gmail.com'
     puerto_smtp = 587
@@ -50,6 +60,14 @@ def enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto=None):
 
 # Mails
 def proceso_finalizado(info_escena, archivo_adjunto=None):
+
+    """Envía un correo electrónico notificando la finalización del procesamiento de una escena Landsat.
+
+    Args:
+        info_escena (dict): Diccionario con información relevante de la escena procesada (nubes, inundación, etc.).
+        archivo_adjunto (str, optional): Ruta al archivo adjunto (ej. quicklook de la escena). Por defecto es None.
+    """
+
     destinatarios = ['digd.geografo@gmail.com']
     asunto = 'Nueva escena Landsat procesada'
     cuerpo = f"""
@@ -92,6 +110,20 @@ db = database.Landsat
 db_hidroperiodo = database.Hidroperiodo
 
 def prepare_hydrop(productos_dir, output_dir, ciclo_hidrologico, umbral_nubes):
+
+    """Prepara los datos del hidroperiodo copiando las máscaras de inundación válidas para un ciclo hidrológico.
+
+    La función filtra las escenas de acuerdo a su cobertura de nubes y dentro del rango del ciclo hidrológico,
+    y luego copia las máscaras de inundación (_flood.tif) al directorio de salida. Además, se almacena el ciclo
+    hidrológico y sus escenas en la base de datos MongoDB.
+
+    Args:
+        productos_dir (str): Ruta al directorio que contiene las escenas procesadas.
+        output_dir (str): Ruta al directorio donde se copiarán las máscaras de inundación.
+        ciclo_hidrologico (str): Ciclo hidrológico en formato 'YYYY-YYYY'.
+        umbral_nubes (float): Porcentaje máximo de nubes permitido en las escenas de marismas.
+    """
+    
     # Obtener el año inicial y final del ciclo hidrológico
     year_start = int(ciclo_hidrologico.split('-')[0])
     year_end = year_start + 1
