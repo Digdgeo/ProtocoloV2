@@ -7,9 +7,18 @@ from datetime import date
 
 def get_escenas_values(path):
 
-    '''Con este script, podemos calcular el valor en días que le corresponde a una escena dentro de un ciclo 
-    hidrológico. Con suerte, será la base para el cálculo del hidroperiodo'''
-    
+    """Calcula los valores en días para cada escena dentro de un ciclo hidrológico.
+
+    Este método genera un diccionario con las escenas como claves y los días asignados
+    como valores. Estos valores se calculan basados en el inicio de un ciclo hidrológico
+    (1 de septiembre).
+
+    Args:
+        path (str): Ruta al directorio que contiene las escenas (archivos .tif).
+
+    Returns:
+        dict: Un diccionario que asigna un valor en días a cada escena.
+    """    
     
     escenas = [i[:8] for i in os.listdir(path) if i.endswith('.tif')]
     years = set([i[:4] for i in escenas])
@@ -46,6 +55,18 @@ def get_escenas_values(path):
 
 
 def get_hydroperiod(path, values):
+
+    """Genera los productos intermedios de inundación, sequía y días válidos para cada escena.
+
+    Este método toma los archivos .tif de escenas y genera tres productos intermedios:
+    - flood_rec: Inundación (días de inundación)
+    - dry_rec: Sequía (días secos)
+    - valid_rec: Días válidos (suma de días de inundación y sequía)
+
+    Args:
+        path (str): Ruta al directorio que contiene las escenas (archivos .tif).
+        values (dict): Diccionario de valores en días para cada escena, generado por `get_escenas_values`.
+    """
     
     escenas = [i for i in os.listdir(path) if i.endswith('.tif')]
     outpath = os.path.join(path, 'output')
@@ -82,7 +103,17 @@ def get_hydroperiod(path, values):
                 
                 
 def get_products(path):
-    
+
+    """Genera el hidroperiodo y los días válidos acumulados de todas las escenas.
+
+    Este método combina todas las escenas procesadas en `get_hydroperiod` para calcular
+    dos productos finales:
+    - hydroperiod.tif: Muestra el número total de días de inundación a lo largo de todas las escenas.
+    - valid_days.tif: Muestra el número total de días válidos (inundación + sequía) a lo largo de todas las escenas.
+
+    Args:
+        path (str): Ruta al directorio que contiene los archivos intermedios (_flood_rec.tif, _valid_rec.tif).
+    """    
     
     floods = [os.path.join(path, i) for i in os.listdir(path) if i.endswith('_flood_rec.tif')]
     print(floods)
