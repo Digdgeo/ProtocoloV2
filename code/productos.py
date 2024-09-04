@@ -34,7 +34,12 @@ class Product(object):
         
     def __init__(self, ruta_nor):
         
-        
+        """Inicializa un objeto Product con la ruta de la escena normalizada.
+
+        Args:
+            ruta_nor (str): Ruta al directorio de la escena normalizada.
+        """
+
         self.escena = os.path.split(ruta_nor)[1]
         self.raiz = os.path.split(os.path.split(ruta_nor)[0])[0]
         print(self.raiz)
@@ -123,8 +128,12 @@ class Product(object):
         print('escena importada para productos correctamente')
         
         
-        
     def ndvi(self):
+
+        """Calcula el NDVI (Índice de Vegetación de Diferencia Normalizada) para la escena.
+
+        El NDVI se guarda como un archivo GeoTIFF y se actualiza en la base de datos.
+        """
 
         self.ndvi_escena = os.path.join(self.pro_escena, self.escena + '_ndvi_.tif')
         print(self.ndvi_escena)
@@ -158,6 +167,11 @@ class Product(object):
 
 
     def ndwi(self):
+
+        """Calcula el NDWI (Índice de Agua de Diferencia Normalizada) para la escena.
+
+        El NDWI se guarda como un archivo GeoTIFF y se actualiza en la base de datos.
+        """
 
         self.ndwi_escena = os.path.join(self.pro_escena, self.escena + '_ndwi.tif')
         #print outfile
@@ -193,6 +207,11 @@ class Product(object):
 
     def mndwi(self):
 
+        """Calcula el MNDWI (Índice Modificado de Agua de Diferencia Normalizada) para la escena.
+
+        El MNDWI se guarda como un archivo GeoTIFF y se actualiza en la base de datos.
+        """
+
         self.mndwi_escena = os.path.join(self.pro_escena, self.escena + '_mndwi.tif')
         #print outfile
         
@@ -224,9 +243,14 @@ class Product(object):
 
         print(f'Mndwi guardado en: {self.mndwi_escena}')
 
+
     def flood(self):
         
-        """Calcula la máscara de inundación con base en los criterios especificados"""
+        """Genera la máscara de inundación utilizando diversos criterios (e.g., NDWI, MNDWI, Slope).
+
+        La máscara de inundación se guarda como un archivo GeoTIFF y se actualiza en la base de datos.
+        Aplica reglas para determinar qué áreas son consideradas inundadas.
+        """
     
         self.flood_escena = os.path.join(self.pro_escena, self.escena + '_flood.tif')
         #print(self.flood_escena)
@@ -359,6 +383,12 @@ class Product(object):
     
         
     def turbidity(self):
+
+        """Calcula la turbidez del agua en la escena usando bandas espectrales.
+
+        El cálculo de la turbidez se guarda como un archivo GeoTIFF y se actualiza en la base de datos.
+        Usa diferentes modelos dependiendo del tipo de cuerpo de agua (río o marisma).
+        """
         
         waterMask = os.path.join(self.water_masks, 'water_mask_turb.tif')
         self.turbidity_escena = os.path.join(self.pro_escena, self.escena + '_turbidity.tif')
@@ -437,6 +467,12 @@ class Product(object):
 
 
     def depth(self):
+
+        """Calcula la profundidad del agua en las áreas inundadas de la escena.
+
+        La profundidad se calcula utilizando ratios entre bandas espectrales y modelos empíricos.
+        El resultado se guarda como un archivo GeoTIFF y se actualiza en la base de datos.
+        """
         
         # Abrimos las bandas necesarias para correr el algoritmo
         septb4 = os.path.join(self.water_masks, '20230930l9oli202_34_grn2_nir_b5.tif')
@@ -530,6 +566,12 @@ class Product(object):
 
 
     def get_flood_surface(self):
+
+        """Calcula la superficie inundada por zonas de marisma y actualiza MongoDB.
+
+        Utiliza un shapefile de recintos de marisma y una máscara de inundación para calcular la superficie 
+        inundada en hectáreas para cada zona. Los resultados se guardan en un archivo CSV y en la base de datos.
+        """
         
         print('Vamos a calcualr la superficie inundada para los recintos de la marisma')
         # Cargar el raster de la máscara de agua
@@ -613,6 +655,12 @@ class Product(object):
 
 
     def run(self):
+
+        """Ejecuta el flujo completo de generación de productos.
+
+        Calcula NDVI, NDWI, MNDWI, máscara de inundación, turbidez, profundidad, y la superficie
+        inundada, actualizando los productos correspondientes en la base de datos.
+        """
 
         print('comenzando con los productos...')
         self.ndvi()
