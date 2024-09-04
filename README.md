@@ -51,7 +51,8 @@ However, all the magic is orchestrated and controlled by `download.py`, which au
 - [x] Check old and new water masks (six checked) (done! ✅)
 - [ ] Test new thresholds and try to resolve Trebujena crop issues
 - [x] Add hydroperiod collection to database and enable filtering by clouds in preparation (done! ✅)
-- [ ] **Important**: Create `lunch scripts` using `argparse` to run them from `crontab`
+- [x] **Important**: Create `lunch scripts` using `argparse` to run them from `crontab`
+- [ ] Make this a python package where reference image and PIAs are paraemeters of the class
 
 ## Contributing
 
