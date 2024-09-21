@@ -333,7 +333,7 @@ class Landsat:
         #geo = '/media/diego/31F8C0B3792FC3B6/EBD/Protocolo_v2_2024/geo'
         #path_rad = os.path.join(self.geo, self.escena)
         #os.makedirs(path_rad, exist_ok=True)
-        wrs = os.path.join(self.data, wrs_202034.shp)
+        wrs = os.path.join(self.data, 'wrs_202034.shp')
         
         for i in os.listdir(self.ruta_escena):
             

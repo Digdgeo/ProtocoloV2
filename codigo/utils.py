@@ -68,12 +68,7 @@ def proceso_finalizado(info_escena, archivo_adjunto=None):
         archivo_adjunto (str, optional): Ruta al archivo adjunto (ej. quicklook de la escena). Por defecto es None.
     """
 
-    destinatarios = ['digd.geografo@gmail.com', 
-    'jbustamante@ebd.csic.es', 
-    'rdiaz@ebd.csic.es', 
-    'daragones@ebd.csic.es',
-    'isabelafan@ebd.csic.es',
-    'gabrielap.romero@ebd.csic.es']
+    destinatarios = ['digd.geografo@gmail.com']
     asunto = 'Nueva escena Landsat procesada'
     cuerpo = f"""
     Hola equipo LAST,
