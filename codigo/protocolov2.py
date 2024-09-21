@@ -333,6 +333,7 @@ class Landsat:
         #geo = '/media/diego/31F8C0B3792FC3B6/EBD/Protocolo_v2_2024/geo'
         #path_rad = os.path.join(self.geo, self.escena)
         #os.makedirs(path_rad, exist_ok=True)
+        wrs = os.path.join(self.data, wrs_202034.shp)
         
         for i in os.listdir(self.ruta_escena):
             
@@ -347,7 +348,7 @@ class Landsat:
                         name = self.escena_date + self.sat + self.sensor + self.path + '_' + self.row[1:] + '_g2_' + olibands[banda] + '.tif'
                         out = os.path.join(self.geo_escena, name.lower())
 
-                        cmd = "gdalwarp -ot Int32 -srcnodata 0 -dstnodata '-9999' -tr 30 30 -te 633570 4053510 851160 4249530 -tap -cutline /media/diego/Datos4/EBD/Protocolo_v2_2024/data/wrs_202034.shp {} {}".format(ins, out)
+                        cmd = "gdalwarp -ot Int32 -srcnodata 0 -dstnodata '-9999' -tr 30 30 -te 633570 4053510 851160 4249530 -tap -cutline {} {} {}".format(wrs, ins, out)
                         print(cmd)
                         os.system(cmd)
 
@@ -365,7 +366,7 @@ class Landsat:
                         name = self.escena_date + self.sat + self.sensor + self.path + '_' + self.row[1:] + '_g2_' + etmbands[banda] + '.tif'
                         out = os.path.join(self.geo_escena, name.lower())
 
-                        cmd = "gdalwarp -ot Int32 -srcnodata 0 -dstnodata '-9999' -tr 30 30 -te 633570 4053510 851160 4249530 -tap -cutline /media/diego/Datos4/EBD/Protocolo_v2_2024/data/wrs_202034.shp {} {}".format(ins, out)
+                        cmd = "gdalwarp -ot Int32 -srcnodata 0 -dstnodata '-9999' -tr 30 30 -te 633570 4053510 851160 4249530 -tap -cutline {} {} {}".format(wrs, ins, out)
                         print(cmd)
                         os.system(cmd)
 
