@@ -6,7 +6,7 @@ import tarfile
 import argparse
 
 # Añadimos la ruta con el código a nuestro pythonpath para poder importar la clase Landsat
-sys.path.append('/home/diego/git/ProtocoloV2/codigo')
+sys.path.append('/path/to/git/ProtocoloV2/codigo')
 
 from protocolov2 import Landsat
 from productos import Product
@@ -69,10 +69,12 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
 
     print(f"{len(scenes)} scenes found.")
 
-    # Process the result
+    # Process the result    
     for scene in scenes:
 
-
+        # Let's try to solve the duplicat emails with this dogdy approach
+        mail = 0
+        
         #print(scene)
         
         # Scene Id
@@ -171,12 +173,15 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
                                                    'nubes_land': landsat.newesc['Clouds']['land cloud cover'],
                                                    'nubes_Doñana': landsat.pn_cover,
                                                    'flood_PN': inundacion_data}
-                    
-                                    archivo_adjunto = landsat.qk_name
-                                    proceso_finalizado(info_escena, archivo_adjunto)
+
+                                    # En lugar de mandar el mail simplemnte sumamos uno al contador mail
+                                    #archivo_adjunto = landsat.qk_name
+                                    #proceso_finalizado(info_escena, archivo_adjunto)
+                                    mail += 1
                                     
                                 else:
                                     print(f"No se encontraron datos de inundación para la escena {escena_id}.")
+                                    
                             else:
                                 print(f"No se encontró ningún documento con ID {escena_id}.")
                         
@@ -188,8 +193,10 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
                                                'nubes_Doñana': landsat.pn_cover,
                                                'flood_PN': inundacion_data}
                 
-                                archivo_adjunto = landsat.qk_name
-                                proceso_finalizado(info_escena, archivo_adjunto)
+                                # En lugar de mandar el mail simplemnte sumamos uno al contador mail
+                                #archivo_adjunto = landsat.qk_name
+                                #proceso_finalizado(info_escena, archivo_adjunto)
+                                mail += 1
                                 
                         except Exception as e:
                             print(f"Error extracting scene {sc}: {e}")     
@@ -266,8 +273,10 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
                                                'nubes_Doñana': landsat.pn_cover,
                                                'flood_PN': inundacion_data}
                 
-                                archivo_adjunto = landsat.qk_name
-                                proceso_finalizado(info_escena, archivo_adjunto)
+                                # En lugar de mandar el mail simplemnte sumamos uno al contador mail
+                                #archivo_adjunto = landsat.qk_name
+                                #proceso_finalizado(info_escena, archivo_adjunto)
+                                mail += 1
                             else:
                                 print(f"No se encontraron datos de inundación para la escena {escena_id}.")
                         else:
@@ -281,8 +290,10 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
                                        'nubes_Doñana': landsat.pn_cover,
                                        'flood_PN': inundacion_data}
     
-                        archivo_adjunto = landsat.qk_name
-                        proceso_finalizado(info_escena, archivo_adjunto)
+                        # En lugar de mandar el mail simplemnte sumamos uno al contador mail
+                        #archivo_adjunto = landsat.qk_name
+                        #proceso_finalizado(info_escena, archivo_adjunto)
+                        mail += 1
                     
                     except Exception as e:
                         print(f"Error extracting scene {sc}: {e}")                
@@ -290,7 +301,13 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
                     # Check database to see if it's already done
                     #print('Ahora habría que procesar la escena desde la excepción (de aquel que no tiene corazón... ayyy compay')
                     #pass
-        
+
+        # Al final del bucle si se ha llegado en cualquier punto a mandar el mail lo mandamos antes pasar a la siguiente escena
+        if mail > 0:
+            
+            archivo_adjunto = landsat.qk_name
+            proceso_finalizado(info_escena, archivo_adjunto)
+            
     # Logout from EarthExplorer and API
     ee.logout()
     api.logout()
