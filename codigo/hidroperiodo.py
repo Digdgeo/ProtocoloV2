@@ -148,3 +148,39 @@ def get_products(path):
         dst.write(zerosf.astype(rasterio.float32))
     with rasterio.open(out_valid, 'w', **meta) as dst:
         dst.write(zerosv.astype(rasterio.float32))
+
+
+def get_normalized_365(path):
+
+    """Genera el hidroperiodo normalizado a 365 días.
+
+    Utiliza los productos hydroperiod.tif y validdays.tif para generar el hidroperiodo normalizado
+    en el que el 100% equivale a 365 días de inundación.
+
+    Args:
+        path (str): Ruta al directorio que contiene los archivos intermedios hydroperiod.tif y valid_days.tif.
+    """    
+
+    for i in os.listdir(path):
+        if i.endswith('hydroperiod.tif'):            
+            hyd_cycle = os.path.join(path, i)
+        elif i.endswith('valid_days.tif'):
+            val_days = os.path.join(path, i)
+        else: continue
+
+    with rasterio.open(hyd_cycle) as hyd_src:
+        meta = hyd_src.meta
+        HYD = hyd_src.read()
+
+        with rasterio.open(val_days) as val_src:
+            VAL = val_src.read()
+        
+            #Inudadas
+            NOR_HYD = np.true_divide(HYD, VAL) * 365
+            NOR_HYD_CLIP = np.clip(NOR_HYD, 0, 365)
+        
+            out_nor_hyd = os.path.join(path, 'hydroperiod_nortdiv.tif')
+        
+            with rasterio.open(out_nor_hyd, 'w', **meta) as dst:
+                dst.write(NOR_HYD_CLIP)
+    
