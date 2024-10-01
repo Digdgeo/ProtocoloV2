@@ -116,13 +116,23 @@ def get_products(path):
     """    
     
     floods = [os.path.join(path, i) for i in os.listdir(path) if i.endswith('_flood_rec.tif')]
-    print(floods)
+    #print(floods)
     #dry = [os.path.join(path, i) for i in os.listdir(path) if i.endswith('_dry_rec.tif')]
     valids = [os.path.join(path, i) for i in os.listdir(path) if i.endswith('_valid_rec.tif')]
-                
+
+     # Ordenar y extraer el ciclo
+    try:
+        # Extraer solo el nombre del archivo
+        first_file_name = os.path.basename(sorted(floods)[0])
+        c1 = first_file_name[:4]
+        c2 = int(c1) + 1
+        ciclo = f'_{c1}_{c2}'
+    except Exception as e:
+        print(f"Error al extraer el ciclo: {e}")
+        return 
             
-    out_flood = os.path.join(os.path.split(path)[0], 'hydroperiod.tif')
-    out_valid = os.path.join(os.path.split(path)[0], 'valid_days.tif')
+    out_flood = os.path.join(os.path.split(path)[0], f'hydroperiod{ciclo}.tif')
+    out_valid = os.path.join(os.path.split(path)[0], f'valid_days{ciclo}.tif')
     
     #Generate the hydroperiod and valid days bands
     shape = rasterio.open(floods[0]).read().shape
@@ -162,9 +172,11 @@ def get_normalized_365(path):
     """    
 
     for i in os.listdir(path):
-        if i.endswith('hydroperiod.tif'):            
+        if i.startswith('hydroperiod'):            
             hyd_cycle = os.path.join(path, i)
-        elif i.endswith('valid_days.tif'):
+            # Capturamos el ciclo
+            ciclo = i.split('_')[1] + '_' + i.split('_')[-1][:-4]
+        elif i.startswith('valid_days'):
             val_days = os.path.join(path, i)
         else: continue
 
@@ -179,8 +191,7 @@ def get_normalized_365(path):
             NOR_HYD = np.true_divide(HYD, VAL) * 365
             NOR_HYD_CLIP = np.clip(NOR_HYD, 0, 365)
         
-            out_nor_hyd = os.path.join(path, 'hydroperiod_nortdiv.tif')
+            out_nor_hyd = os.path.join(path, f'hydroperiod_nor_{ciclo}.tif')
         
             with rasterio.open(out_nor_hyd, 'w', **meta) as dst:
                 dst.write(NOR_HYD_CLIP)
-    
