@@ -80,10 +80,11 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
         # Scene Id
         sc = scene['display_id']
         processing = sc.split('_')[1]
+        tier = sc.split('_')[-1]
         
-        print(sc, processing)
+        print(sc, processing, tier)
 
-        if processing == 'L2SP':
+        if processing == 'L2SP' and tier == 'T1':
         
         
             try:
