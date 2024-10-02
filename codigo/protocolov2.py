@@ -71,7 +71,10 @@ class Landsat:
             self.cloud_mask_values = [5440, 5504]
 
         #Definimos nombre last
-        self.last_name = (self.escena_date + self.sat + self.sensor[:-1] + self.path + '_' + self.row[1:]).lower()
+        if self.sensor == 'ETM+':
+            self.last_name = (self.escena_date + self.sat + self.sensor[:-1] + self.path + '_' + self.row[1:]).lower()
+        else:
+            self.last_name = (self.escena_date + self.sat + self.sensor + self.path + '_' + self.row[1:]).lower()
 
         # Definimos paths de salida
         self.pro_escena = os.path.join(self.pro, self.last_name)
