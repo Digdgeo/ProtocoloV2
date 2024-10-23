@@ -119,9 +119,16 @@ class Product(object):
 
        
         try:
-        
-            db.update_one({'_id':self.escena}, {'$set':{'Productos': []}},  upsert=True)
+            # Verificar si ya existen productos asociados a la escena
+            documento = db.find_one({'_id': self.escena}, {'Productos': 1})
             
+            if documento and 'Productos' in documento:
+                print(f"Productos existentes para la escena {self.escena}: {documento['Productos']}")
+            else:
+                # Si no hay productos existentes, inicializar la lista de productos
+                db.update_one({'_id': self.escena}, {'$set': {'Productos': []}}, upsert=True)
+                print(f"No se encontraron productos existentes para la escena {self.escena}. Inicializando...")
+
         except Exception as e:
             print("Unexpected error:", type(e), e)
             
@@ -653,6 +660,40 @@ class Product(object):
         print(f"Superficie inundada para la escena {self.escena} ha sido actualizada en MongoDB.")
 
 
+    def export_MongoDB(self, ruta_destino="/path/to/save/export", formato="json"):
+        
+        """
+        Exporta la base de datos MongoDB a un archivo JSON o CSV y lo guarda en la ruta especificada.
+        
+        Args:
+            ruta_destino (str): Ruta donde se guardarán los archivos exportados.
+            formato (str): Formato de exportación, puede ser 'json' o 'csv'.
+        """
+        
+        try:
+            # Exportar todas las colecciones a archivos JSON o CSV
+            for coleccion_nombre in database.list_collection_names():
+                coleccion = database[coleccion_nombre]
+                documentos = list(coleccion.find({}))
+
+                if formato == "json":
+                    with open(f"{ruta_destino}/{coleccion_nombre}.json", "w") as archivo_json:
+                        json.dump(documentos, archivo_json, default=str, indent=4)
+                    print(f"Colección '{coleccion_nombre}' exportada a JSON en {ruta_destino}")
+
+                elif formato == "csv":
+                    # Convertir los documentos a un DataFrame de Pandas
+                    df = pd.DataFrame(documentos)
+                    df.to_csv(f"{ruta_destino}/{coleccion_nombre}.csv", index=False)
+                    print(f"Colección '{coleccion_nombre}' exportada a CSV en {ruta_destino}")
+
+                else:
+                    print("Formato no válido. Debe ser 'json' o 'csv'.")
+
+        except Exception as e:
+            print(f"Error durante la exportación: {e}")
+
+
 
     def run(self):
 
@@ -671,3 +712,5 @@ class Product(object):
         self.depth()
         print('vamos al get_flood_surface')
         self.get_flood_surface()
+        # Exportamos las colecciones a json
+        self.export_MongoDB()
