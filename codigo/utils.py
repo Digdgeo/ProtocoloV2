@@ -103,7 +103,7 @@ def enviar_notificacion_finalizada(info_escena, archivo_adjunto=None, exito=True
             cuerpo += f"    - {area}: {superficie_inundada} ha (Área total no disponible para cálculo de porcentaje)\n"
     
     # Mensaje de cierre
-    cuerpo += "\nSaludos\n\nPd. Se adjunta quicklook de la escena en caso de éxito."
+    cuerpo += "\nSaludos\n\nPd. Se adjunta quicklook de la escena."
 
     # Enviar el correo
     enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto)
