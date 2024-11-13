@@ -321,6 +321,28 @@ class Landsat:
         shutil.rmtree(path_masks)
 
 
+    def apply_gapfill(self):
+        
+        """Aplica gapfill a las bandas de la escena si es Landsat 7 posterior a junio de 2003."""
+        # Verificar si es Landsat 7 y la fecha de adquisición es posterior a junio de 2003
+        if self.sat == "L7" and datetime.strptime(self.escena_date, "%Y%m%d") > datetime(2003, 6, 1):
+            print("Aplicando gapfill a las bandas de Landsat 7 posteriores a junio de 2003.")
+    
+            for band_path in [self.blue, self.green, self.red, self.nir, self.swir1, self.swir2]:
+                if band_path and os.path.exists(band_path):  # Asegurar que la banda existe
+                    print(f"Aplicando gapfill a la banda {band_path}")
+    
+                    # Usar GDAL para llenar los valores NoData en el archivo original
+                    src_ds = gdal.Open(band_path, gdalconst.GA_Update)
+                    if src_ds is not None:
+                        gdal.FillNodata(src_ds.GetRasterBand(1), maskBand=None, maxSearchDist=10, smoothingIterations=1)
+                        src_ds = None  # Liberar el dataset después de modificar
+                    else:
+                        print(f"No se pudo abrir la banda {band_path} para gapfill.")
+    
+            print("Gapfill aplicado exitosamente a las bandas de Landsat 7.")
+
+
     def projwin(self):
 
         """Aplica proyección y extensión geográfica a las bandas de la escena.
@@ -796,6 +818,10 @@ class Landsat:
         self.get_hillshade()
         self.get_cloud_pn()
         self.remove_masks()
+
+        # Aplicar gapfill si es necesario
+        self.apply_gapfill()
+        
         self.projwin()
         self.coef_sr_st()
         self.normalize()

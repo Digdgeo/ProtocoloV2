@@ -6,7 +6,7 @@ import tarfile
 import argparse
 
 # Añadimos la ruta con el código a nuestro pythonpath para poder importar la clase Landsat
-sys.path.append('/path/to/git/ProtocoloV2/codigo')
+sys.path.append('/root/git/ProtocoloV2/codigo')
 
 from protocolov2 import Landsat
 from productos import Product
@@ -59,7 +59,7 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
 
     # Search for Landsat scenes
     scenes = api.search(
-        dataset='landsat_ot_c2_l2', #!!!!!!!!!!!!!!!!!!!Hay que añadir los otros datasets!!!!!!!!!!!
+        dataset='landsat_etm_c2_l2', #!!!!!!!!!!!!!!!!!!!Hay que añadir los otros datasets!!!!!!!!!!!
         latitude=latitude,
         longitude=longitude,
         start_date=start_date,
@@ -86,126 +86,101 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
 
         if processing == 'L2SP' and tier == 'T1':
         
-        
             try:
-    
-                
-                # Consulta en la base de datos
+                # Consulta en la base de datos usando `tier_id`
                 result = db.find_one({'tier_id': sc})
-                
-                # Verificar el resultado de la consulta
-                print(f"Resultado de la consulta para '{sc}': {result}")
     
-                # Verifica si result es None
+                # Verificar si la escena ya está en la base de datos
                 if result:
-                    print(f"La escena con ID {sc} ya está en la base de datos.")
+                    print(f"La escena con tier_id {sc} ya está en la base de datos.")
                 else:
-                    print(f"La escena con ID {sc} no está en la base de datos.")
+                    print(f"La escena con tier_id {sc} no está en la base de datos.")
                     print(f"Downloading scene {sc}...")
-    
-            
-                    
-                    ee.download(sc, output_dir=output_dir)
-    
-                    # De aquí salta al error con lexplore :(
-    
-                    # Now as default we're going to process the new scene
-                    if process == True:
-                        # Check database to see if it's already done
-                        print('Ahora habría que descomprimir y procesar la escena. La descarga fue ok')
-    
-                        # Sometimes works good?           
-    
-                        print('Vamos a descomprimir', sc)  
-                        
-                        sc_tar = os.path.join(output_dir, sc + '.tar')
-                        sr2 = os.path.split(output_dir)[0]
-                        
-                        print('CHECKING!!', sr2, sc)
-                        
-                        sc_dest = os.path.join(sr2, sc)
-        
-                        os.makedirs(sc_dest, exist_ok=True)
-                        
-                        # En la función download_landsat_scenes
-                        try:
-                            
-                            print(f"sc_tar: {sc_tar}")
-                            print(f"sc_dest: {sc_dest}")
-                            print(f"os.path.exists(sc_dest): {os.path.exists(sc_dest)}")
-                                        
-                            print('Extrayendo archivos a sr2')
-                            with tarfile.open(sc_tar) as tar:
-                                tar.extractall(sc_dest)
-                                print(f"Archivos extraídos en {sc_dest}")
-                            
-                            # Once files are extracted in the correct folder we can proceed to run landsat class
-                            print('\ncrossed fingers, we are going to start with Protocolo\n')
-                            landsat = Landsat(sc_dest)
-                            landsat.run()
-        
-                            # Now we have the scene processed and we are going to run the products (by the moment testing with NDVI)
-                            landsatp = Product(landsat.nor_escena)
-                            landsatp.run()
-        
-                            # Let's get water surfaces
-                            # Verificar si el documento existe
-                            # Consulta para recuperar el documento
-                            escena_id = landsat.last_name
-                            print(escena_id)
-                            documento = db.find_one({"_id": escena_id})
-        
-                            if documento:
-                                # Buscar el diccionario de "Flood" dentro de la lista "Productos"
-                                for producto in documento.get("Productos", []):
-                                    if isinstance(producto, dict) and "Flood" in producto:
-                                        inundacion_data = producto["Flood"]
-                                        break
-                                else:
-                                    inundacion_data = None  # Si no se encuentra "Flood"
-                            
-                                if inundacion_data:
-                                    print(f"Datos de inundación para la escena {escena_id}:")
-                                    print(inundacion_data)
-                                    # Let's try to send an email
-                                    print('Moving to mailing')
-                                    info_escena = {'escena': landsat.last_name,
-                                                   'nubes_escena': landsat.newesc['Clouds']['cloud_scene'],
-                                                   'nubes_land': landsat.newesc['Clouds']['land cloud cover'],
-                                                   'nubes_Doñana': landsat.pn_cover,
-                                                   'flood_PN': inundacion_data}
 
-                                    # En lugar de mandar el mail simplemnte sumamos uno al contador mail
-                                    #archivo_adjunto = landsat.qk_name
-                                    #proceso_finalizado(info_escena, archivo_adjunto)
-                                    mail += 1
-                                    
-                                else:
-                                    print(f"No se encontraron datos de inundación para la escena {escena_id}.")
-                                    
-                            else:
-                                print(f"No se encontró ningún documento con ID {escena_id}.")
+                ee.download(sc, output_dir=output_dir)
+
+                # De aquí salta al error con lexplore :(
+
+                # Now as default we're going to process the new scene
+                if process == True:
+                    # Check database to see if it's already done
+                    print('Ahora habría que descomprimir y procesar la escena. La descarga fue ok')
+
+                    # Sometimes works good?           
+
+                    print('Vamos a descomprimir', sc)  
+                    
+                    sc_tar = os.path.join(output_dir, sc + '.tar')
+                    sr2 = os.path.split(output_dir)[0]
+                    
+                    print('CHECKING!!', sr2, sc)
+                    
+                    sc_dest = os.path.join(sr2, sc)
+    
+                    os.makedirs(sc_dest, exist_ok=True)
+                    
+                    # En la función download_landsat_scenes
+                    try:
                         
-                                # Let's try to send an email
-                                print('Moving to mailing')
-                                info_escena = {'escena': landsat.last_name,
-                                               'nubes_escena': landsat.newesc['Clouds']['cloud_scene'],
-                                               'nubes_land': landsat.newesc['Clouds']['land cloud cover'],
-                                               'nubes_Doñana': landsat.pn_cover,
-                                               'flood_PN': inundacion_data}
-                
-                                # En lugar de mandar el mail simplemnte sumamos uno al contador mail
-                                #archivo_adjunto = landsat.qk_name
-                                #proceso_finalizado(info_escena, archivo_adjunto)
+                        print(f"sc_tar: {sc_tar}")
+                        print(f"sc_dest: {sc_dest}")
+                        print(f"os.path.exists(sc_dest): {os.path.exists(sc_dest)}")
+                                    
+                        print('Extrayendo archivos a sr2')
+                        with tarfile.open(sc_tar) as tar:
+                            tar.extractall(sc_dest)
+                            print(f"Archivos extraídos en {sc_dest}")
+                        
+                        # Once files are extracted in the correct folder we can proceed to run landsat class
+                        print('\ncrossed fingers, we are going to start with Protocolo\n')
+                        landsat = Landsat(sc_dest)
+                        landsat.run()
+
+                        quicklook = landsat.qk_name
+                        print('!!!!!!!!!!!!!!!!!!!!!!!!!!!', quicklook, '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+                        # Aqui rellenamos info_escena para obtener los datos que se enviaran en el mail
+                        # Actualizar `info_escena` con datos de `landsat.newesc`
+                        info_escena = {
+                            'escena': landsat.last_name,
+                            'nubes_escena': landsat.newesc['Clouds']['cloud_scene'],
+                            'nubes_land': landsat.newesc['Clouds']['land cloud cover'],
+                            'nubes_Doñana': landsat.pn_cover
+                        }
+
+                        print('INFO ESCENAAAAAAAAAAAAAAAAAAA: ', info_escena)
+    
+                        # Now we have the scene processed and we are going to run the products (by the moment testing with NDVI)
+                        landsatp = Product(landsat.nor_escena)
+                        landsatp.run()
+
+                        try:
+                            # Obtener los productos de 'landsatp' desde MongoDB después de ejecutar 'run'
+                            landsatp.productos = db.find_one({'_id': landsat.last_name}, {'Productos': 1}).get("Productos", [])
+                        
+                            # Iterar a través de los productos para encontrar 'Flood'
+                            flood_data = next((prod["Flood"] for prod in landsatp.productos if isinstance(prod, dict) and "Flood" in prod), None)
+                        
+                            if flood_data:
+                                info_escena['flood_PN'] = flood_data
+                                print('INFO ESCENAAAAAAAAAAAAAAAAAAA en try: ', info_escena)
                                 mail += 1
-                                
+                            else:
+                                print("No hay datos de inundación")
+                        
                         except Exception as e:
-                            print(f"Error extracting scene {sc}: {e}")     
-                
-                                # else:
-                                #     continue
-                
+                            print('No hay datos de inundación', e)
+                            continue
+    
+                        # Let's get water surfaces
+                        # Verificar si el documento existe
+                        # Consulta para recuperar el documento
+                        
+                        #documento = db.find_one({"_id": escena_id})
+                            
+                    except Exception as e:
+                        print(f"Error extracting scene {sc}: {e}")     
             
+                        
             except Exception as e:
                 
                 print(f"Error downloading scene {sc}: {e}")
@@ -242,74 +217,73 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
                         print('\ncrossed fingers, we are going to start with Protocolo\n')
                         landsat = Landsat(sc_dest)
                         landsat.run()
+
+                        quicklook = landsat.qk_name
+                        print('!!!!!!!!!!!!!!!!!!!!!!!!!!!', quicklook, '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+                        # Aqui rellenamos info_escena para obtener los datos que se enviaran en el mail
+                        # Actualizar `info_escena` con datos de `landsat.newesc`
+                        info_escena = {
+                            'escena': landsat.last_name,
+                            'nubes_escena': landsat.newesc['Clouds']['cloud_scene'],
+                            'nubes_land': landsat.newesc['Clouds']['land cloud cover'],
+                            'nubes_Doñana': landsat.pn_cover
+                        }
+
+                        print('INFO ESCENAAAAAAAAAAAAAAAAAAA EN EXCEPT: ', info_escena)
     
                         # Now we have the scene processed and we are going to run the products (by the moment testing with NDVI)
                         landsatp = Product(landsat.nor_escena)
                         landsatp.run()
-    
-                        # Let's get water surfaces
-                        # Verificar si el documento existe
-                        # Consulta para recuperar el documento
-                        escena_id = landsat.last_name
-                        print(escena_id)
-                        documento = db.find_one({"_id": escena_id})
-    
-                        if documento:
-                            # Buscar el diccionario de "Flood" dentro de la lista "Productos"
-                            for producto in documento.get("Productos", []):
-                                if isinstance(producto, dict) and "Flood" in producto:
-                                    inundacion_data = producto["Flood"]
-                                    break
-                            else:
-                                inundacion_data = None  # Si no se encuentra "Flood"
+
+                        try:
+                            # Obtener los productos de 'landsatp' desde MongoDB después de ejecutar 'run'
+                            landsatp.productos = db.find_one({'_id': landsat.last_name}, {'Productos': 1}).get("Productos", [])
                         
-                            if inundacion_data:
-                                print(f"Datos de inundación para la escena {escena_id}:")
-                                print(inundacion_data)
-                                # Let's try to send an email
-                                print('Moving to mailing')
-                                info_escena = {'escena': landsat.last_name,
-                                               'nubes_escena': landsat.newesc['Clouds']['cloud_scene'],
-                                               'nubes_land': landsat.newesc['Clouds']['land cloud cover'],
-                                               'nubes_Doñana': landsat.pn_cover,
-                                               'flood_PN': inundacion_data}
-                
-                                # En lugar de mandar el mail simplemnte sumamos uno al contador mail
-                                #archivo_adjunto = landsat.qk_name
-                                #proceso_finalizado(info_escena, archivo_adjunto)
+                            # Iterar a través de los productos para encontrar 'Flood'
+                            flood_data = next((prod["Flood"] for prod in landsatp.productos if isinstance(prod, dict) and "Flood" in prod), None)
+                        
+                            if flood_data:
+                                info_escena['flood_PN'] = flood_data
+                                print('INFO ESCENAAAAAAAAAAAAAAAAAAA en try: ', info_escena)
                                 mail += 1
                             else:
-                                print(f"No se encontraron datos de inundación para la escena {escena_id}.")
-                        else:
-                            print(f"No se encontró ningún documento con ID {escena_id}.")
+                                print("No hay datos de inundación")
                         
-                        # Let's try to send an email
-                        print('Moving to mailing')
-                        info_escena = {'escena': landsat.last_name,
-                                       'nubes_escena': landsat.newesc['Clouds']['cloud_scene'],
-                                       'nubes_land': landsat.newesc['Clouds']['land cloud cover'],
-                                       'nubes_Doñana': landsat.pn_cover,
-                                       'flood_PN': inundacion_data}
+                        except Exception as e:
+                            print('No hay datos de inundación', e)
+                            continue
+                            
+                    except Exception as e:
+                        print(f"Error extracting scene {sc}: {e}")  
+                                       
     
                         # En lugar de mandar el mail simplemnte sumamos uno al contador mail
                         #archivo_adjunto = landsat.qk_name
                         #proceso_finalizado(info_escena, archivo_adjunto)
-                        mail += 1
+                        #mail += 1
                     
                     except Exception as e:
                         print(f"Error extracting scene {sc}: {e}")                
-                    
-                    # Check database to see if it's already done
-                    #print('Ahora habría que procesar la escena desde la excepción (de aquel que no tiene corazón... ayyy compay')
-                    #pass
 
-        # Al final del bucle si se ha llegado en cualquier punto a mandar el mail lo mandamos antes pasar a la siguiente escena
-        if mail > 0:
+
+        try:
+            archivo_adjunto = quicklook
+            print('QUICKLOOK!!!!!!!!!!!!!!!!', quicklook)
+            print('Archivo adjuntoOOOOOOOOOOOOOOOOOOOOOOOOOOOO', archivo_adjunto)
+            print(type(archivo_adjunto))
+
+            # Enviamos el correo basándonos en el valor de `mail`
+            if mail > 0:
+                enviar_notificacion_finalizada(info_escena, archivo_adjunto, exito=True)  # Correo de éxito
+            else:
+                enviar_notificacion_finalizada(info_escena, archivo_adjunto, exito=False)  # Correo de fallo
             
-            archivo_adjunto = landsat.qk_name
-            proceso_finalizado(info_escena, archivo_adjunto)
+
+        except Exception as e:
+            print(f"Error processing scene {sc}: {e}")
+                       
             
-    # Logout from EarthExplorer and API
+    #Logout from EarthExplorer and API
     ee.logout()
     api.logout()
 

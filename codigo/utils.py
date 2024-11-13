@@ -1,10 +1,9 @@
+import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
-import os
-
 
 # Mails
 def enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto=None):
@@ -59,42 +58,57 @@ def enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto=None):
         print(f"Error al enviar el correo: {e}")
 
 # Mails
-def proceso_finalizado(info_escena, archivo_adjunto=None):
-
-    """Envía un correo electrónico notificando la finalización del procesamiento de una escena Landsat.
-
-    Args:
-        info_escena (dict): Diccionario con información relevante de la escena procesada (nubes, inundación, etc.).
-        archivo_adjunto (str, optional): Ruta al archivo adjunto (ej. quicklook de la escena). Por defecto es None.
-    """
+def enviar_notificacion_finalizada(info_escena, archivo_adjunto=None, exito=True):
+    """Envía una notificación final indicando éxito o fallo en el procesamiento."""
 
     destinatarios = ['digd.geografo@gmail.com', 'diegogarcia@ebd.csic.es']
-    asunto = 'Nueva escena Landsat procesada'
+    asunto = 'Nueva escena Landsat procesada' if exito else 'Nueva Escena Landsat procesada sin normalizar'
+    estado = "procesada exitosamente" if exito else "procesada, pero sin poder normalizarse"
+
+    # Datos del área total de cada recinto en hectáreas
+    area_total = {
+        'El Rincon del Pescador': 3499.3,
+        'Marismillas': 3861.1,
+        'Caracoles': 2718.9,
+        'FAO': 64.8,
+        'Marisma Occidental': 11668.9,
+        'Marisma Oriental': 9575.1,
+        'Entremuros': 2617.4
+    }
+    
+    # Construye el cuerpo del correo
     cuerpo = f"""
     Hola equipo LAST,
 
-    Soy el bot del Protocolo de Dieguito (de todos los bots, sin duda el más bonito). 
-    
-    Este es un mail automático 
-    para informaros de que la escena {info_escena['escena']} ha sido procesada exitosamente. 
-    
+    Soy el bot del Protocolo de Dieguito, de todos los bots el más... ¿Que os voy a decir ya que no sepáis a estas alturas?
+
+    Este es un mail automático enviado desde la máquina virtual cloudlast01
+    para informaros de que la escena {info_escena['escena']} ha sido {estado}. 
+
     Detalles de la escena:
 
-    - Nubes escena: {info_escena['nubes_escena']}
-    - Nubes escena tierra: {info_escena['nubes_land']}
-    - Nubes Parque nacional: {info_escena['nubes_Doñana']}
-    - Inundación Marisma (ha): {info_escena['flood_PN']}
-    
-    Seguiremos informando,
-    Saludos
+    - Nubes escena: {info_escena.get('nubes_escena', 'N/A')}
+    - Nubes escena tierra: {info_escena.get('nubes_land', 'N/A')}
+    - Nubes Parque nacional: {info_escena.get('nubes_Doñana', 'N/A')}
 
-    Pd. Se adjunta quicklook de la escena.
+    Superficies inundadas:
     """
+    
+    # Agregar los valores de 'flood_PN' y calcular el porcentaje de inundación
+    for area, superficie_inundada in info_escena['flood_PN'].items():
+        if area in area_total:
+            porcentaje_inundado = (superficie_inundada / area_total[area]) * 100
+            cuerpo += f"    - {area}: {superficie_inundada} ha ({porcentaje_inundado:.2f}% inundado)\n"
+        else:
+            cuerpo += f"    - {area}: {superficie_inundada} ha (Área total no disponible para cálculo de porcentaje)\n"
+    
+    # Mensaje de cierre
+    cuerpo += "\nSaludos\n\nPd. Se adjunta quicklook de la escena en caso de éxito."
 
     # Enviar el correo
     enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto)
 
-
+        
 # Hydroperiods
 import os
 import shutil

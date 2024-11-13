@@ -11,6 +11,7 @@ import fiona
 import sqlite3
 import math
 import pymongo
+import json
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -660,7 +661,7 @@ class Product(object):
         print(f"Superficie inundada para la escena {self.escena} ha sido actualizada en MongoDB.")
 
 
-    def export_MongoDB(self, ruta_destino="/path/to/save/export", formato="json"):
+    def export_MongoDB(self, ruta_destino="/mnt/datos_last/mongo_data", formato="json"):
         
         """
         Exporta la base de datos MongoDB a un archivo JSON o CSV y lo guarda en la ruta especificada.
