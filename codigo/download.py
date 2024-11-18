@@ -59,7 +59,7 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
 
     # Search for Landsat scenes
     scenes = api.search(
-        dataset='landsat_etm_c2_l2', #!!!!!!!!!!!!!!!!!!!Hay que añadir los otros datasets!!!!!!!!!!!
+        dataset='landsat_etm_c2_l2', #!!!!!!!!!!!!!!!!!!!Hay que añadir los otros datasets!!!!!!!!!!! ot etm tm
         latitude=latitude,
         longitude=longitude,
         start_date=start_date,
@@ -68,6 +68,38 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
     )
 
     print(f"{len(scenes)} scenes found.")
+
+    # Comprobar si hay escenas nuevas
+    escenas_nuevas = []
+    for scene in scenes:
+        sc = scene['display_id']
+        result = db.find_one({'tier_id': sc})  # Consulta en la base de datos
+        if not result:  # Si no está en la base de datos, es nueva
+            escenas_nuevas.append(scene)
+
+    # Si no hay escenas nuevas, enviar un correo y salir
+    destinatarios = ['digd.geografo@gmail.com', 'diegogarcia@ebd.csic.es', 'jbustamante@ebd.csic.es', 
+                     'rdiaz@ebd.csic.es', 'isabelafan@ebd.csic.es', 'daragones@ebd.csic.es', 'gabrielap.romero@ebd.csic.es']
+    if not escenas_nuevas:
+        asunto = "No hay nuevas escenas disponibles en la USGS"
+        mensaje = (
+            "Hola Equipo LAST,\n\n"
+            "No se han encontrado nuevas escenas disponibles para procesar. "
+            "Parece que la USGS está tardando más de lo habitual en actualizar los datos.\n\n"
+            "...O quizás Biden, Trump, Putin, Netanyahu (él más probable) o la madre que parió al cordero y a todos juntos a la vez hayan empezado ya la III WW.\n"
+            "Otra probabilidad es que Elon Musk haya tomado el mando del programa Landsat y ahora haya que tener una suscripción premiun plus pagando por píxeles...\n\n"
+            "En fin, seguiremos (si podemos) informando las próximas semanas.\n\n"
+            "Saludos cordiales,\n"
+            "El bot del Protocolo del Dieguito 🤖"
+        )
+        enviar_correo(
+            destinatarios=destinatarios,
+            asunto=asunto,
+            cuerpo=mensaje
+            #exito=False
+        )
+        print("No hay escenas nuevas disponibles. Correo enviado.")
+        return  # Salir de la función
 
     # Process the result    
     for scene in scenes:
@@ -166,6 +198,7 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
                                 mail += 1
                             else:
                                 print("No hay datos de inundación")
+                                #mail -= 1
                         
                         except Exception as e:
                             print('No hay datos de inundación', e)
@@ -248,6 +281,7 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
                                 mail += 1
                             else:
                                 print("No hay datos de inundación")
+                                #mail -= 1
                         
                         except Exception as e:
                             print('No hay datos de inundación', e)
@@ -282,6 +316,7 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
         except Exception as e:
             print(f"Error processing scene {sc}: {e}")
                        
+    
             
     #Logout from EarthExplorer and API
     ee.logout()
