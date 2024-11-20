@@ -59,7 +59,7 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
 
     # Search for Landsat scenes
     scenes = api.search(
-        dataset='landsat_etm_c2_l2', #!!!!!!!!!!!!!!!!!!!Hay que añadir los otros datasets!!!!!!!!!!! ot etm tm
+        dataset='landsat_ot_c2_l2', #!!!!!!!!!!!!!!!!!!!Hay que añadir los otros datasets!!!!!!!!!!! ot etm tm
         latitude=latitude,
         longitude=longitude,
         start_date=start_date,
@@ -323,4 +323,4 @@ def download_landsat_scenes(username, password, latitude, longitude, days_back=1
     api.logout()
 
 # Example usage
-#download_landsat_scenes('user_name', 'user_pass', latitude=37.05, longitude=-6.35, end_date='2022-09-05', days_back=20, output_dir='/out/put/dir/to/save/scenes/')
+download_landsat_scenes('user', 'password', latitude=37.05, longitude=-6.35, end_date=arrow.now().format('YYYY-MM-DD'), days_back=5, output_dir='/path/to/save/rar/files')
