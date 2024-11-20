@@ -12,6 +12,7 @@ import sqlite3
 import math
 import pymongo
 import json
+import psycopg2
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -19,7 +20,6 @@ import matplotlib.pyplot as plt
 from rasterio.features import geometry_mask
 from osgeo import gdal, gdalconst
 from datetime import datetime, date
-
 
 from pymongo import MongoClient
 client = MongoClient()
@@ -114,7 +114,7 @@ class Product(object):
                             self.swir2 = os.path.join(self.nor, i)
 
         # Debugging print statements
-        print('BLUE:', self.blue)
+        print('BLUE:', self.swir1)
         print('FMASK:', self.fmask)
         print('HILLSHADE:', self.hillshade)
 
@@ -695,6 +695,96 @@ class Product(object):
             print(f"Error durante la exportación: {e}")
 
 
+    def enviar_inundacion_a_postgres(self):
+        
+        """
+        Envía datos de inundación de la escena actual (self.escena) desde MongoDB a PostgreSQL.
+        """
+        import psycopg2
+        from datetime import datetime
+    
+        # Conexión a PostgreSQL
+        pg_connection = psycopg2.connect(
+            host="10.17.14.140",
+            database="productos_inundaciones",
+            user="diegog",
+            password="cambi4_PASSW@",
+            port=5432
+        )
+        pg_cursor = pg_connection.cursor()
+    
+        print(f"Conexión con PostgreSQL realizada, procesando la escena: {self.escena}")
+        
+        # Crear la tabla en PostgreSQL (si no existe)
+        create_table_query = """
+        CREATE TABLE IF NOT EXISTS datos_inundacion (
+            id SERIAL PRIMARY KEY,
+            _id TEXT NOT NULL,
+            usgs_id TEXT,
+            fecha TIMESTAMP,
+            el_rincon_del_pescador DOUBLE PRECISION,
+            marismillas DOUBLE PRECISION,
+            caracoles DOUBLE PRECISION,
+            fao DOUBLE PRECISION,
+            marisma_occidental DOUBLE PRECISION,
+            marisma_oriental DOUBLE PRECISION,
+            entremuros DOUBLE PRECISION
+        );
+        """
+        pg_cursor.execute(create_table_query)
+        pg_connection.commit()
+    
+        # Extraer la escena específica desde MongoDB
+        doc = db.find_one({"_id": self.escena})
+        if doc:
+            try:
+                _id = doc["_id"]
+                usgs_id = doc.get("usgs_id", None)
+    
+                # Extraer fecha desde _id (primeros 8 caracteres)
+                fecha_str = _id[:8]
+                fecha = datetime.strptime(fecha_str, "%Y%m%d")
+    
+                # Manejar acceso seguro a la lista de Productos
+                productos = doc.get("Productos", [])
+                flood = productos[3].get("Flood", {}) if len(productos) > 3 else {}
+    
+                # Datos de inundación por recinto
+                el_rincon = flood.get("El Rincon del Pescador", None)
+                marismillas = flood.get("Marismillas", None)
+                caracoles = flood.get("Caracoles", None)
+                fao = flood.get("FAO", None)
+                marisma_occidental = flood.get("Marisma Occidental", None)
+                marisma_oriental = flood.get("Marisma Oriental", None)
+                entremuros = flood.get("Entremuros", None)
+    
+                # Insertar datos en PostgreSQL
+                insert_query = """
+                INSERT INTO datos_inundacion (
+                    _id, usgs_id, fecha, 
+                    el_rincon_del_pescador, marismillas, caracoles, fao,
+                    marisma_occidental, marisma_oriental, entremuros
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                """
+                pg_cursor.execute(insert_query, (
+                    _id, usgs_id, fecha,
+                    el_rincon, marismillas, caracoles, fao,
+                    marisma_occidental, marisma_oriental, entremuros
+                ))
+    
+                pg_connection.commit()
+                print(f"Datos de inundación de la escena {_id} enviados a PostgreSQL correctamente.")
+    
+            except Exception as e:
+                print(f"Error procesando la escena {_id}: {e}")
+        else:
+            print(f"No se encontró la escena con _id={self.escena} en MongoDB.")
+    
+        # Cerrar conexión
+        pg_cursor.close()
+        pg_connection.close()
+
 
     def run(self):
 
@@ -705,13 +795,17 @@ class Product(object):
         """
 
         print('comenzando con los productos...')
+        # Calculamos los productos
         self.ndvi()
         self.ndwi()
         self.mndwi()
         self.flood()
         self.turbidity()
         self.depth()
+        # Calculamos las áreas inundadas
         print('vamos al get_flood_surface')
         self.get_flood_surface()
         # Exportamos las colecciones a json
         self.export_MongoDB()
+        # Llamar al método de envío a PostgreSQL
+        self.enviar_inundaciones_a_postgres()
