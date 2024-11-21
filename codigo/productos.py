@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 from rasterio.features import geometry_mask
 from osgeo import gdal, gdalconst
 from datetime import datetime, date
+from rasterstats import zonal_stats
 
 from pymongo import MongoClient
 client = MongoClient()
@@ -67,6 +68,8 @@ class Product(object):
 
         # Shape con recintos
         self.recintos = os.path.join(self.data, 'Recintos_Marisma.shp')
+        self.lagunas = os.path.join(self.data, 'lagunas_carola_32629.shp')
+        self.resultados_lagunas = {}
         # Salida con la superficie inundada por recinto
         #self.superficie_inundada = os.path.join(self.pro_escena, 'superficie_inundada.csv')
         
@@ -661,6 +664,77 @@ class Product(object):
         print(f"Superficie inundada para la escena {self.escena} ha sido actualizada en MongoDB.")
 
 
+    def calcular_inundacion_lagunas(self):
+
+        """
+        Calcula la superficie inundada para las lagunas y actualiza MongoDB.
+        
+        Args:
+            None
+        
+        Updates:
+            MongoDB: Actualiza el campo "Flood.Lagunas" con:
+                - Número de lagunas con agua
+                - Superficie total inundada
+                - Porcentaje inundado respecto al área total teórica
+        """
+
+
+        lagunas = gpd.read_file(self.lagunas)
+        # 1. Cargar la máscara de inundación
+        with rasterio.open(self.flood_escena) as src:
+            resolution = src.res[0] * src.res[1]  # Resolución del píxel en unidades de área
+
+        # 2. Calcular el área máxima teórica de inundación
+        lagunas["area_total"] = lagunas.geometry.area / 10000
+        area_maxima_teorica = lagunas["area_total"].sum()
+
+        # 3. Calcular estadísticas zonales
+        stats = zonal_stats(
+            lagunas,
+            self.flood_escena,
+            stats=["sum"],
+            raster_out=False,
+            geojson_out=False,
+        )
+
+        # 4. Añadir superficie inundada a la capa de lagunas
+        lagunas["area_inundada"] = [
+            (stat["sum"] or 0) * resolution / 10000 for stat in stats
+        ]  # Multiplicamos por la resolución para obtener el área en unidades reales
+
+        # 5. Calcular métricas
+        lagunas_con_agua = lagunas[lagunas["area_inundada"] > 0]
+        numero_lagunas_con_agua = len(lagunas_con_agua)
+        superficie_total_inundada = lagunas_con_agua["area_inundada"].sum()
+        porcentaje_inundado = (superficie_total_inundada / area_maxima_teorica) * 100
+
+        # 6. Guardar resultados en el diccionario
+        self.resultados_lagunas = {
+            "numero_lagunas_con_agua": numero_lagunas_con_agua,
+            "superficie_total_inundada": superficie_total_inundada,
+            "porcentaje_inundado": porcentaje_inundado,
+        }
+
+        # 7. Mostrar resultados
+        print(f"Número de lagunas con agua: {numero_lagunas_con_agua}")
+        print(f"Superficie total inundada: {superficie_total_inundada:.2f} ha")
+        print(f"Porcentaje de inundación respecto al total teórico: {porcentaje_inundado:.2f}%")
+
+        # 8. Guardar resultados en MongoDB dentro de Flood
+        try:
+                
+            # Actualizar el campo Flood en el documento correspondiente
+            db.update_one(
+                {"_id": self.escena},  # Ajusta el filtro según tus datos
+                {"$set": {"Flood.Lagunas": self.resultados_lagunas}},  # Añadir Lagunas al campo Flood
+                upsert=True
+            )
+            print("Resultados de lagunas guardados en MongoDB correctamente.")
+        except Exception as e:
+            print(f"Error al guardar en MongoDB: {e}")
+
+
     def export_MongoDB(self, ruta_destino="/mnt/datos_last/mongo_data", formato="json"):
         
         """
@@ -699,91 +773,120 @@ class Product(object):
         
         """
         Envía datos de inundación de la escena actual (self.escena) desde MongoDB a PostgreSQL.
+        Los datos de superficie se convierten de metros cuadrados a hectáreas antes de enviarlos.
         """
-        import psycopg2
-        from datetime import datetime
-    
-        # Conexión a PostgreSQL
-        pg_connection = psycopg2.connect(
-            host="10.17.14.140",
-            database="productos_inundaciones",
-            user="diegog",
-            password="cambi4_PASSW@",
-            port=5432
-        )
-        pg_cursor = pg_connection.cursor()
-    
-        print(f"Conexión con PostgreSQL realizada, procesando la escena: {self.escena}")
         
-        # Crear la tabla en PostgreSQL (si no existe)
-        create_table_query = """
-        CREATE TABLE IF NOT EXISTS datos_inundacion (
-            id SERIAL PRIMARY KEY,
-            _id TEXT NOT NULL,
-            usgs_id TEXT,
-            fecha TIMESTAMP,
-            el_rincon_del_pescador DOUBLE PRECISION,
-            marismillas DOUBLE PRECISION,
-            caracoles DOUBLE PRECISION,
-            fao DOUBLE PRECISION,
-            marisma_occidental DOUBLE PRECISION,
-            marisma_oriental DOUBLE PRECISION,
-            entremuros DOUBLE PRECISION
-        );
-        """
-        pg_cursor.execute(create_table_query)
-        pg_connection.commit()
+        try:
+            # Conexión a PostgreSQL
+            pg_connection = psycopg2.connect(
+                host=os.getenv("POSTGRES_HOST", "10.17.14.140"),
+                database=os.getenv("POSTGRES_DB", "productos_inundaciones"),
+                user=os.getenv("POSTGRES_USER", "diegog"),
+                password=os.getenv("POSTGRES_PASSWORD", "cambi4_PASSW@"),
+                port=int(os.getenv("POSTGRES_PORT", 5432))
+            )
+            pg_cursor = pg_connection.cursor()
     
-        # Extraer la escena específica desde MongoDB
-        doc = db.find_one({"_id": self.escena})
-        if doc:
-            try:
-                _id = doc["_id"]
-                usgs_id = doc.get("usgs_id", None)
+            print(f"Conexión con PostgreSQL realizada, procesando la escena: {self.escena}")
     
-                # Extraer fecha desde _id (primeros 8 caracteres)
-                fecha_str = _id[:8]
-                fecha = datetime.strptime(fecha_str, "%Y%m%d")
+            # Crear la tabla en PostgreSQL (si no existe)
+            create_table_query = """
+            CREATE TABLE IF NOT EXISTS datos_inundacion (
+                id SERIAL PRIMARY KEY,
+                _id TEXT NOT NULL,
+                usgs_id TEXT,
+                fecha TIMESTAMP,
+                el_rincon_del_pescador DOUBLE PRECISION,
+                marismillas DOUBLE PRECISION,
+                caracoles DOUBLE PRECISION,
+                fao DOUBLE PRECISION,
+                marisma_occidental DOUBLE PRECISION,
+                marisma_oriental DOUBLE PRECISION,
+                entremuros DOUBLE PRECISION
+            );
+            """
+            pg_cursor.execute(create_table_query)
+            pg_connection.commit()
     
-                # Manejar acceso seguro a la lista de Productos
-                productos = doc.get("Productos", [])
-                flood = productos[3].get("Flood", {}) if len(productos) > 3 else {}
+            # Extraer la escena específica desde MongoDB
+            doc = db.find_one({"_id": self.escena})
+            if doc:
+                try:
+                    _id = doc["_id"]
+                    usgs_id = doc.get("usgs_id", None)
     
-                # Datos de inundación por recinto
-                el_rincon = flood.get("El Rincon del Pescador", None)
-                marismillas = flood.get("Marismillas", None)
-                caracoles = flood.get("Caracoles", None)
-                fao = flood.get("FAO", None)
-                marisma_occidental = flood.get("Marisma Occidental", None)
-                marisma_oriental = flood.get("Marisma Oriental", None)
-                entremuros = flood.get("Entremuros", None)
+                    # Extraer fecha desde _id (primeros 8 caracteres)
+                    fecha_str = _id[:8]
+                    fecha = datetime.strptime(fecha_str, "%Y%m%d")
     
-                # Insertar datos en PostgreSQL
-                insert_query = """
-                INSERT INTO datos_inundacion (
-                    _id, usgs_id, fecha, 
-                    el_rincon_del_pescador, marismillas, caracoles, fao,
-                    marisma_occidental, marisma_oriental, entremuros
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
-                """
-                pg_cursor.execute(insert_query, (
-                    _id, usgs_id, fecha,
-                    el_rincon, marismillas, caracoles, fao,
-                    marisma_occidental, marisma_oriental, entremuros
-                ))
+                    # Manejar acceso seguro a la lista de Productos
+                    productos = doc.get("Productos", [])
+                    flood = productos[3].get("Flood", {}) if len(productos) > 3 else {}
     
-                pg_connection.commit()
-                print(f"Datos de inundación de la escena {_id} enviados a PostgreSQL correctamente.")
+                    # Convertir superficies de m² a hectáreas (1 ha = 10,000 m²)
+                    el_rincon = flood.get("El Rincon del Pescador")
+                    el_rincon = el_rincon if el_rincon is not None else None
+                    
+                    marismillas = flood.get("Marismillas")
+                    marismillas = marismillas if marismillas is not None else None
+                    
+                    caracoles = flood.get("Caracoles")
+                    caracoles = caracoles if caracoles is not None else None
+                    
+                    fao = flood.get("FAO")
+                    fao = fao if fao is not None else None
+                    
+                    marisma_occidental = flood.get("Marisma Occidental")
+                    marisma_occidental = marisma_occidental if marisma_occidental is not None else None
+                    
+                    marisma_oriental = flood.get("Marisma Oriental")
+                    marisma_oriental = marisma_oriental if marisma_oriental is not None else None
+                    
+                    entremuros = flood.get("Entremuros")
+                    entremuros = entremuros if entremuros is not None else None
     
-            except Exception as e:
-                print(f"Error procesando la escena {_id}: {e}")
-        else:
-            print(f"No se encontró la escena con _id={self.escena} en MongoDB.")
+                    # Insertar datos en PostgreSQL
+                    insert_query = """
+                    INSERT INTO datos_inundacion (
+                        _id, usgs_id, fecha, 
+                        el_rincon_del_pescador, marismillas, caracoles, fao,
+                        marisma_occidental, marisma_oriental, entremuros
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    ON CONFLICT (_id)
+                    DO UPDATE SET
+                        usgs_id = EXCLUDED.usgs_id,
+                        fecha = EXCLUDED.fecha,
+                        el_rincon_del_pescador = EXCLUDED.el_rincon_del_pescador,
+                        marismillas = EXCLUDED.marismillas,
+                        caracoles = EXCLUDED.caracoles,
+                        fao = EXCLUDED.fao,
+                        marisma_occidental = EXCLUDED.marisma_occidental,
+                        marisma_oriental = EXCLUDED.marisma_oriental,
+                        entremuros = EXCLUDED.entremuros;
+                    """
+                    pg_cursor.execute(insert_query, (
+                        _id, usgs_id, fecha,
+                        el_rincon, marismillas, caracoles, fao,
+                        marisma_occidental, marisma_oriental, entremuros
+                    ))
+                    pg_connection.commit()
+                    print(f"Datos de inundación de la escena {_id} enviados a PostgreSQL correctamente.")
     
-        # Cerrar conexión
-        pg_cursor.close()
-        pg_connection.close()
+                except psycopg2.Error as e:
+                    pg_connection.rollback()
+                    print(f"Error procesando la escena {_id}: {e}")
+            else:
+                print(f"No se encontró la escena con _id={self.escena} en MongoDB.")
+    
+        except Exception as e:
+            print(f"Error al conectar con PostgreSQL: {e}")
+        finally:
+            if 'pg_cursor' in locals():
+                pg_cursor.close()
+            if 'pg_connection' in locals():
+                pg_connection.close()
+
 
 
     def run(self):
@@ -795,17 +898,16 @@ class Product(object):
         """
 
         print('comenzando con los productos...')
-        # Calculamos los productos
-        self.ndvi()
-        self.ndwi()
-        self.mndwi()
-        self.flood()
-        self.turbidity()
-        self.depth()
-        # Calculamos las áreas inundadas
-        print('vamos al get_flood_surface')
-        self.get_flood_surface()
-        # Exportamos las colecciones a json
-        self.export_MongoDB()
-        # Llamar al método de envío a PostgreSQL
-        self.enviar_inundaciones_a_postgres()
+        try:
+            self.ndvi()
+            self.ndwi()
+            self.mndwi()
+            self.flood()
+            self.turbidity()
+            self.depth()
+            self.get_flood_surface()
+            self.calcular_inundacion_lagunas()
+            self.export_MongoDB()
+            self.enviar_inundacion_a_postgres()
+        except Exception as e:
+            print(f"Error en el flujo de ejecución: {e}")
