@@ -156,6 +156,9 @@ class Product(object):
         # Crear tabla resumen_lagunas
         self.crear_tabla_lagunas()
 
+        # Crear tabla lagunas principales
+        self.crear_tabla_lagunas_principales()
+
         # Crear tabla datos_inundacion (si es necesario)
         self.crear_tabla_recintos()
 
@@ -185,6 +188,33 @@ class Product(object):
             print(f"Error al crear la tabla 'resumen_lagunas': {e}")
             raise
 
+
+    def crear_tabla_lagunas_principales(self):
+        
+        """Crea una tabla en PostgreSQL para almacenar datos de las lagunas con nombre."""
+        
+        try:
+            create_table_query = """
+            CREATE TABLE lagunas_principales (
+            id SERIAL PRIMARY KEY, -- Clave primaria autonumérica
+            _id TEXT NOT NULL,     -- Identificador único de la escena (único pero no clave primaria)
+            usgs_id TEXT,          -- ID opcional
+            nombre TEXT NOT NULL,  -- Nombre de la laguna
+            superficie_total DOUBLE PRECISION, -- Área total
+            superficie_inundada DOUBLE PRECISION, -- Área inundada
+            porcentaje_inundacion DOUBLE PRECISION, -- Porcentaje de inundación
+            UNIQUE (_id, nombre)   -- Índice único en combinación de _id y nombre
+            );
+            """
+            self.pg_cursor.execute(create_table_query)
+            self.pg_connection.commit()
+            print("Tabla 'lagunas_nombre' creada o ya existente.")
+        except Exception as e:
+            print(f"Error al crear la tabla 'lagunas_nombre': {e}")
+            raise
+        
+
+    
     def crear_tabla_recintos(self):
         
         """Crea la tabla datos_inundacion en PostgreSQL si no existe."""
@@ -828,6 +858,64 @@ class Product(object):
             print(f"Error al guardar en MongoDB: {e}")
 
 
+    def calcular_inundacion_lagunas_principales(self):
+        
+        """Calcula la inundación para lagunas principales (aquellas con toponimo no nulo) y actualiza MongoDB y PostgreSQL."""
+        
+        try:
+            # Leer la capa de lagunas
+            lagunas = gpd.read_file(self.lagunas)
+            
+            # Filtrar lagunas con toponimo no nulo y crear una copia independiente
+            lagunas_principales = lagunas[lagunas["TOPONIMO"].notnull()].copy()
+            
+            # Verificar si hay lagunas principales
+            if lagunas_principales.empty:
+                print("No hay lagunas principales con 'toponimo' definido.")
+                return
+            
+            # Calcular área total para las lagunas principales
+            lagunas_principales["area_total"] = lagunas_principales.geometry.area / 10000  # Calcula en hectáreas
+            
+            # Cargar la máscara de inundación
+            with rasterio.open(self.flood_escena) as src:
+                resolution = src.res[0] * src.res[1]  # Resolución del píxel en unidades de área
+            
+            # Calcular estadísticas zonales
+            stats = zonal_stats(
+                lagunas_principales,
+                self.flood_escena,
+                stats=["sum"],
+                raster_out=False,
+                geojson_out=False,
+            )
+            
+            # Añadir estadísticas al GeoDataFrame
+            lagunas_principales["area_inundada"] = [
+                (stat["sum"] or 0) * resolution / 10000 for stat in stats
+            ]
+            lagunas_principales["porcentaje_inundacion"] = (
+                lagunas_principales["area_inundada"] / lagunas_principales["area_total"] * 100
+            )
+            
+            # Preparar datos para MongoDB y PostgreSQL
+            lagunas_dict = lagunas_principales[["TOPONIMO", "area_total", "area_inundada", "porcentaje_inundacion"]].to_dict("records")
+            
+            # Actualizar en MongoDB
+            db.update_one(
+                {"_id": self.escena},
+                {"$set": {"Flood.LagunasPrincipales": lagunas_dict}},
+                upsert=True
+            )
+            print("Resultados de lagunas principales actualizados en MongoDB.")
+            
+            # Guardar en PostgreSQL
+            self.enviar_lagunas_principales_a_postgres(lagunas_dict)
+        except Exception as e:
+            print(f"Error calculando inundación para lagunas principales: {e}")
+
+
+
     def export_MongoDB(self, ruta_destino="/mnt/datos_last/mongo_data", formato="json"):
         
         """
@@ -925,7 +1013,53 @@ class Product(object):
         except psycopg2.Error as e:
             self.pg_connection.rollback()
             print(f"Error procesando la escena {self.escena}: {e}")
+
+
+    def enviar_lagunas_principales_a_postgres(self, lagunas_dict):
+        
+        """Envía los datos de las lagunas principales (con toponimo) a PostgreSQL.
     
+        Args:
+            lagunas_dict (list): Lista de diccionarios con datos de lagunas principales.
+                                 Cada diccionario debe incluir los campos:
+                                 - _id (id de la escena)
+                                 - usgs_id (opcional)
+                                 - TOPONIMO (nombre de la laguna)
+                                 - area_total
+                                 - area_inundada
+                                 - porcentaje_inundacion
+        """
+        
+        try:
+            
+            for laguna in lagunas_dict:
+                insert_query = """
+                INSERT INTO lagunas_principales (
+                    _id, usgs_id, nombre, superficie_total, superficie_inundada, porcentaje_inundacion
+                )
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (_id, nombre)
+                DO UPDATE SET
+                    superficie_total = EXCLUDED.superficie_total,
+                    superficie_inundada = EXCLUDED.superficie_inundada,
+                    porcentaje_inundacion = EXCLUDED.porcentaje_inundacion;
+                """
+                self.pg_cursor.execute(insert_query, (
+                    self.escena,  # Este es el _id de la escena
+                    laguna.get("usgs_id", None),  # Opcional si existe
+                    laguna["TOPONIMO"],  # TOPONIMO como nombre de la laguna
+                    laguna["area_total"],
+                    laguna["area_inundada"],
+                    laguna["porcentaje_inundacion"]
+                ))
+            self.pg_connection.commit()
+            print("Datos de lagunas principales enviados a PostgreSQL correctamente.")
+            
+        except Exception as e:
+            
+            self.pg_connection.rollback()
+            print(f"Error enviando lagunas principales a PostgreSQL: {e}")
+
 
     def enviar_resumen_lagunas_a_postgres(self):
         
@@ -977,7 +1111,6 @@ class Product(object):
         except psycopg2.Error as e:
             self.pg_connection.rollback()
             print(f"Error procesando el resumen de lagunas de la escena {self.escena}: {e}")
-
     
 
     def run(self):
@@ -991,16 +1124,22 @@ class Product(object):
         try:
             
             print('Comenzando el procesamiento de productos...')
+            # Calculamos los productos
             self.ndvi()
             self.ndwi()
             self.mndwi()
             self.flood()
             self.turbidity()
             self.depth()
+            # Obtenemos la superficie inundada en los recintos de la marisma
             self.get_flood_surface()
-            self.enviar_inundacion_a_postgres()
+            # Calculamos la inundación en las lagunas (capa Carola). Sumatorio y principales
             self.calcular_inundacion_lagunas()
-            self.enviar_resumen_lagunas_a_postgres()            
+            self.calcular_inundacion_lagunas_principales()
+            # Mandar los datos a la base de PostgreSQL
+            self.enviar_inundacion_a_postgres()
+            # Faltaría enviar lagunas principales se lla directamente desde el método que las calcula
+            self.enviar_resumen_lagunas_a_postgres()
             
         except Exception as e:
             
@@ -1008,5 +1147,4 @@ class Product(object):
             
         finally:
             
-            # Cerrar la conexión a PostgreSQL al finalizar
             self.cerrar_conexion_postgres()
