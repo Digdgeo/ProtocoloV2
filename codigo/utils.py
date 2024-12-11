@@ -210,3 +210,138 @@ def prepare_hydrop(productos_dir, output_dir, ciclo_hidrologico, umbral_nubes):
 
     print(f"Máscaras de inundación para el ciclo hidrológico {ciclo_hidrologico} han sido copiadas a '{ciclo_output_dir}'.")
     print(f"El ciclo hidrológico {ciclo_hidrologico} ha sido registrado en la colección 'Hidroperiodo' con {len(escenas_validas)} escenas.")
+
+
+###########################################################################################################
+# Calcular el número de días de inundación media para cada sub recinto de la marisma y mandarlo a PostgreSQL
+###########################################################################################################
+
+import os
+import glob
+import geopandas as gpd
+import rasterio
+import numpy as np
+import psycopg2
+from rasterio.mask import mask
+from shapely.geometry import mapping
+
+# Parámetros de conexión a PostgreSQL
+db_params = {
+    'host': 'xx.xx.xx.xx',
+    'dbname': 'x',
+    'user': 'xxx',
+    'password': 'xxxx'
+}
+
+# Cargar el shapefile con los subrecintos (nuevo shapefile)
+zona_interes_recintos = gpd.read_file('path/to/your/polygons.shp')
+
+# Definir el directorio donde están los archivos GeoTIFF
+directorio_rasters = 'path/to/your/hydroperiods/folder'
+
+# Buscar los archivos TIFF que empiezan con "hydroperiod_nor" y terminan con ".tif"
+archivos_tiff = glob.glob(os.path.join(directorio_rasters, '**', 'hydroperiod_nor*.tif'), recursive=True)
+
+# Función para obtener el valor medio dentro de un polígono
+def obtener_media_raster(archivo_tiff, shapefile):
+    with rasterio.open(archivo_tiff) as src:
+        # Recortar el raster con la máscara del shapefile
+        out_image, out_transform = mask(src, shapefile.geometry, crop=True)
+        out_image = out_image[0]  # Tomar la primera banda del raster
+
+        # Filtrar valores nulos (NoData)
+        out_image = out_image[out_image != src.nodata]
+
+        # Calcular el valor medio
+        return np.mean(out_image)
+
+# Función para calcular el porcentaje inundado
+def calcular_porcentaje_inundado(shapefile, area_total):
+    area_inundada = shapefile['Area'].sum()  # Sumar las áreas de los subrecintos
+    porcentaje_inundado = (area_inundada / area_total) * 100
+    return porcentaje_inundado
+
+# Crear la nueva tabla en PostgreSQL si no existe
+def crear_tabla_postgresql():
+    try:
+        conn = psycopg2.connect(**db_params)
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS hidroperiodo_medias_recintos (
+                subrecinto VARCHAR,
+                ciclo VARCHAR,
+                valor_medio DOUBLE PRECISION,
+                porcentaje_inundado DOUBLE PRECISION,
+                PRIMARY KEY (subrecinto, ciclo)
+            )
+        """)
+        conn.commit()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print(f"Error al crear la tabla en PostgreSQL: {e}")
+
+# Insertar los datos en la tabla de PostgreSQL
+def insertar_datos_postgresql(medias_recintos):
+    try:
+        conn = psycopg2.connect(**db_params)
+        cursor = conn.cursor()
+        for subrecinto, ciclos in medias_recintos.items():
+            for ciclo, (media, porcentaje) in ciclos.items():
+                media = float(media)
+                cursor.execute("""
+                    INSERT INTO hidroperiodo_medias_recintos (subrecinto, ciclo, valor_medio, porcentaje_inundado)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (subrecinto, ciclo) DO UPDATE
+                    SET valor_medio = EXCLUDED.valor_medio, porcentaje_inundado = EXCLUDED.porcentaje_inundado
+                """, (subrecinto, ciclo, media, porcentaje))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print("Datos guardados en la tabla 'hidroperiodo_medias_recintos'")
+    except Exception as e:
+        print(f"Error al insertar datos en PostgreSQL: {e}")
+
+# Obtener los valores medios y porcentaje inundado para cada subrecinto y ciclo
+def obtener_valores_medios_recintos():
+    medias_recintos = {}
+    area_total = zona_interes_recintos['Area'].sum()  # Área total de todos los subrecintos
+
+    for _, subrecinto in zona_interes_recintos.iterrows():
+        # Recortar el shapefile para cada subrecinto
+        shapefile_subrecinto = zona_interes_recintos[ zona_interes_recintos['Nombre'] == subrecinto['Nombre'] ]
+        
+        # Crear un diccionario para almacenar los valores por ciclo
+        medias_recintos[subrecinto['Nombre']] = {}
+
+        for archivo in archivos_tiff:
+            # Extraer los dos años del nombre del archivo
+            anio_inicio = archivo.split('_')[-2]  # Primer año
+            anio_fin = archivo.split('_')[-1].split('.')[0]  # Segundo año
+            ciclo = f"{anio_inicio}-{anio_fin}"  # Formato '1984-1985'
+
+            # Obtener el valor medio para el subrecinto y ciclo
+            media = obtener_media_raster(archivo, shapefile_subrecinto)
+
+            # Calcular el porcentaje inundado
+            porcentaje_inundado = calcular_porcentaje_inundado(shapefile_subrecinto, area_total)
+            
+            # Guardar los resultados para ese subrecinto y ciclo
+            medias_recintos[subrecinto['Nombre']][ciclo] = (media, porcentaje_inundado)
+
+    return medias_recintos
+
+# Ejecutar todo el proceso
+def ejecutar_script():
+    # Crear la tabla en PostgreSQL
+    crear_tabla_postgresql()
+    
+    # Obtener los valores medios y el porcentaje inundado para cada subrecinto y ciclo
+    medias_recintos = obtener_valores_medios_recintos()
+
+    # Insertar los valores en PostgreSQL
+    insertar_datos_postgresql(medias_recintos)
+
+# Ejecutar el script
+if __name__ == "__main__":
+    ejecutar_script()
