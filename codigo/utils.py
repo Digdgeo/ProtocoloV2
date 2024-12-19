@@ -1,5 +1,8 @@
 import os
 import smtplib
+import pymongo
+import psycopg2
+from psycopg2 import sql
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
@@ -59,9 +62,20 @@ def enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto=None):
 
 # Mails
 def enviar_notificacion_finalizada(info_escena, archivo_adjunto=None, exito=True):
-    """Envía una notificación final indicando éxito o fallo en el procesamiento."""
+    """
+    Envía una notificación final indicando éxito o fallo en el procesamiento.
 
-    destinatarios = ['digd.geografo@gmail.com', 'diegogarcia@ebd.csic.es']
+    Args:
+        info_escena (dict): Información de la escena procesada, incluyendo nubes, superficies inundadas y lagunas.
+        archivo_adjunto (str): Ruta al archivo que se adjuntará en el correo (opcional).
+        exito (bool): Indica si el procesamiento fue exitoso (True) o si falló (False).
+    """
+    destinatarios = [
+        'digd.geografo@gmail.com', 'diegogarcia@ebd.csic.es', 
+        'jbustamante@ebd.csic.es', 'rdiaz@ebd.csic.es', 
+        'isabelafan@ebd.csic.es', 'daragones@ebd.csic.es', 
+        'gabrielap.romero@ebd.csic.es'
+    ]
     asunto = 'Nueva escena Landsat procesada' if exito else 'Nueva Escena Landsat procesada sin normalizar'
     estado = "procesada exitosamente" if exito else "procesada, pero sin poder normalizarse"
 
@@ -80,10 +94,10 @@ def enviar_notificacion_finalizada(info_escena, archivo_adjunto=None, exito=True
     cuerpo = f"""
     Hola equipo LAST,
 
-    Soy el bot del Protocolo de Dieguito, de todos los bots el más... ¿Que os voy a decir ya que no sepáis a estas alturas?
+    Soy el bot del Protocolo de Dieguito, de todos los bots el más... ¿Qué os voy a decir ya que no sepáis a estas alturas?
 
     Este es un mail automático enviado desde la máquina virtual cloudlast01
-    para informaros de que la escena {info_escena['escena']} ha sido {estado}. 
+    para informaros de que la escena {info_escena.get('escena', 'N/A')} ha sido {estado}. 
 
     Detalles de la escena:
 
@@ -95,21 +109,48 @@ def enviar_notificacion_finalizada(info_escena, archivo_adjunto=None, exito=True
     """
     
     # Agregar los valores de 'flood_PN' y calcular el porcentaje de inundación
-    for area, superficie_inundada in info_escena['flood_PN'].items():
-        if area in area_total:
-            porcentaje_inundado = (superficie_inundada / area_total[area]) * 100
-            cuerpo += f"    - {area}: {superficie_inundada} ha ({porcentaje_inundado:.2f}% inundado)\n"
-        else:
-            cuerpo += f"    - {area}: {superficie_inundada} ha (Área total no disponible para cálculo de porcentaje)\n"
-    
+    flood_pn = info_escena.get('flood_PN', {})
+    if flood_pn and exito:
+        for area, superficie_inundada in flood_pn.items():
+            if area in area_total:
+                porcentaje_inundado = (superficie_inundada / area_total[area]) * 100
+                cuerpo += f"    - {area}: {superficie_inundada:.2f} ha ({porcentaje_inundado:.2f}% inundado)\n"
+            else:
+                cuerpo += f"    - {area}: {superficie_inundada:.2f} ha (Área total no disponible para cálculo de porcentaje)\n"
+    else:
+        cuerpo += "    - No se encontraron datos de inundación.\n"
+
+    # Información de las lagunas
+    lagunas = info_escena.get("lagunas", {})
+    if exito and lagunas:
+        numero_cuerpos = lagunas.get("numero_lagunas_con_agua", "N/A")
+        porcentaje_cuerpos = lagunas.get("porcentaje_cuerpos_con_agua", "N/A")
+        superficie_inundada = lagunas.get("superficie_total_inundada", "N/A")
+        porcentaje_inundado = lagunas.get("porcentaje_inundado", "N/A")
+        cuerpo += f"""
+    Información de las lagunas:
+    - Número de lagunas con agua: {numero_cuerpos}
+    - Porcentaje de lagunas con agua respecto al total: {porcentaje_cuerpos if porcentaje_cuerpos != "N/A" else "N/A"}%
+    - Superficie total inundada: {superficie_inundada if superficie_inundada != "N/A" else "N/A"} ha
+    - Porcentaje de inundación respecto al total teórico: {porcentaje_inundado if porcentaje_inundado != "N/A" else "N/A"}%
+        """
+    else:
+        cuerpo += "\n    Información de las lagunas no disponible o no procesada.\n"
+                
     # Mensaje de cierre
-    cuerpo += "\nSaludos\n\nPd. Se adjunta quicklook de la escena."
+    cuerpo += "\nSaludos\n\nPd. Se adjunta quicklook de la escena si está disponible."
 
     # Enviar el correo
-    enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto)
+    try:
+        enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto)
+        print("Correo enviado exitosamente.")
+    except Exception as e:
+        print(f"Error al enviar el correo: {e}")
 
-        
-# Hydroperiods
+
+
+ 
+# Hydroperiods 
 import os
 import shutil
 from datetime import datetime
@@ -227,17 +268,17 @@ from shapely.geometry import mapping
 
 # Parámetros de conexión a PostgreSQL
 db_params = {
-    'host': 'xx.xx.xx.xxx',
-    'dbname': 'xxxx',
-    'user': 'xx',
-    'password': 'xxx'
+    'host': 'x',
+    'dbname': 'x',
+    'user': 'x',
+    'password': 'x'
 }
 
 # Cargar el shapefile con los subrecintos (nuevo shapefile)
-zona_interes_recintos = gpd.read_file('path/to/your/file')
+zona_interes_recintos = gpd.read_file('/mnt/datos_last/v02/data/Recintos_Marisma.shp')
 
 # Definir el directorio donde están los archivos GeoTIFF
-directorio_rasters = 'path/to/your/hyds'
+directorio_rasters = '/mnt/datos_last/v02/hyd'
 
 # Buscar los archivos TIFF que empiezan con "hydroperiod_nor" y terminan con ".tif"
 archivos_tiff = glob.glob(os.path.join(directorio_rasters, '**', 'hydroperiod_nor*.tif'), recursive=True)
@@ -346,10 +387,10 @@ import matplotlib.pyplot as plt
 
 # Parámetros de conexión a PostgreSQL
 db_params = {
-    'host': 'xx.xx.xx.xxx',
-    'dbname': 'xxxx',
-    'user': 'xx',
-    'password': 'xxx'
+    'host': 'x',
+    'dbname': 'x',
+    'user': 'x',
+    'password': 'x'
 }
 
 # Función para obtener los datos de días medios inundados desde PostgreSQL
@@ -423,6 +464,8 @@ if __name__ == "__main__":
 # Exportar los jpgs de la escena y la máscara de agua para Penelope
 #################################################################################################
 
+# utils.py
+
 import geopandas as gpd
 import rasterio
 from rasterio.mask import mask
@@ -432,12 +475,9 @@ import matplotlib.pyplot as plt
 
 
 def add_north_arrow(ax, position=(0.1, 0.1), size=15, label="N"):
-    """
-    Añade una flecha de norte al gráfico.
-    """
     ax.annotate(
         label,
-        xy=(position[0], position[1] + 0.1),  # Flecha apunta hacia arriba
+        xy=(position[0], position[1] + 0.1),
         xytext=position,
         xycoords='axes fraction',
         textcoords='axes fraction',
@@ -448,10 +488,7 @@ def add_north_arrow(ax, position=(0.1, 0.1), size=15, label="N"):
 
 
 def add_scale_bar(ax, transform, length=5000, location=(0.1, 0.05), height=0.005):
-    """
-    Añade una barra de escala con 3 segmentos alternados (negro-blanco-negro) y un recuadro negro alrededor.
-    """
-    resolution_x = transform[0]  # Resolución en X (m/píxel)
+    resolution_x = transform[0]
     relative_bar_length = length / (resolution_x * 1000)
     bar_x_start = location[0]
     bar_x_end = bar_x_start + relative_bar_length
@@ -469,74 +506,97 @@ def add_scale_bar(ax, transform, length=5000, location=(0.1, 0.05), height=0.005
     ax.text(bar_x_end, location[1] - 0.02, f"{length} m", fontsize=10, ha="center", va="top", transform=ax.transAxes)
 
 
-def add_legend(ax, show_rbios=False, line_width=2):
+def add_legend(ax, legend_type="rgb", line_width=2):
     """
     Añade una leyenda al gráfico.
+    legend_type: Define el tipo de leyenda ('rgb' o 'flood').
+    line_width: Grosor de las líneas en la leyenda.
     """
     legend_elements = []
-    if show_rbios:
+
+    # Leyenda para la composición RGB
+    if legend_type == "rgb":
         legend_elements.append(Patch(facecolor='none', edgecolor='green', label='Reserva de la Biosfera', linewidth=line_width))
 
-    legend_elements.extend([
-        Patch(facecolor='white', edgecolor='black', label='Seco', linewidth=line_width),
-        Patch(facecolor='blue', edgecolor='black', label='Inundado', linewidth=line_width),
-        Patch(facecolor='gray', edgecolor='black', label='Nubes y Sombra de Nubes', linewidth=line_width)
-    ])
-    
+    # Leyenda para la máscara de inundación
+    elif legend_type == "flood":
+        legend_elements.extend([
+            Patch(facecolor='white', edgecolor='black', label='Seco', linewidth=line_width),
+            Patch(facecolor='blue', edgecolor='black', label='Inundado', linewidth=line_width),
+            Patch(facecolor='gray', edgecolor='black', label='No Data', linewidth=line_width),
+            Patch(facecolor='none', edgecolor='green', label='Reserva de la Biosfera', linewidth=line_width)
+        ])
+
+    # Añadir la leyenda al gráfico
     ax.legend(handles=legend_elements, loc='lower left', fontsize=10, frameon=False, bbox_to_anchor=(0.1, 0.1))
 
 
-def process_rgb_multiband(ruta_multibanda, geometry, output_path, transform):
+def process_composition_rgb(swir1, nir, blue, shape, output_path):
     """
-    Procesa la composición RGB desde un raster multibanda y guarda la visualización.
+    Procesa la composición RGB y guarda la visualización.
     """
-    with rasterio.open(ruta_multibanda) as src:
-        rgb_recortada, transform_recorte = mask(src, geometry, crop=True)
-        nodata_val = src.nodata if src.nodata is not None else -9999
-        rgb_recortada[rgb_recortada == nodata_val] = 0
+    with rasterio.open(swir1) as src_swir1, rasterio.open(nir) as src_nir, rasterio.open(blue) as src_blue:
+        geometry = gpd.read_file(shape).geometry.values
+        swir1, _ = mask(src_swir1, geometry, crop=True)
+        nir, _ = mask(src_nir, geometry, crop=True)
+        blue, transform = mask(src_blue, geometry, crop=True)
 
-        rgb_scaled = np.dstack([
-            np.clip((rgb_recortada[0] - 0) / (0.45 - 0), 0, 1),
-            np.clip((rgb_recortada[1] - 0) / (0.45 - 0), 0, 1),
-            np.clip((rgb_recortada[2] - 0) / (0.2 - 0), 0, 1)
-        ])
-        rgb_scaled[np.all(rgb_recortada == 0, axis=0)] = [1, 1, 1]
+        # Escalar y combinar bandas
+        swir1_scaled = np.clip((swir1[0] - 0) / (0.45 - 0), 0, 1)
+        nir_scaled = np.clip((nir[0] - 0) / (0.45 - 0), 0, 1)
+        blue_scaled = np.clip((blue[0] - 0) / (0.2 - 0), 0, 1)
+        rgb_scaled = np.dstack((swir1_scaled, nir_scaled, blue_scaled))
+
+        # Fondo blanco para NoData
+        nodata_val = src_swir1.nodata or -9999
+        rgb_scaled[np.all(swir1 == nodata_val, axis=0)] = [1, 1, 1]
 
     fig, ax = plt.subplots(figsize=(10, 10))
-    ax.imshow(rgb_scaled, extent=(transform_recorte[2],
-                                  transform_recorte[2] + transform_recorte[0] * rgb_scaled.shape[1],
-                                  transform_recorte[5] + transform_recorte[4] * rgb_scaled.shape[0],
-                                  transform_recorte[5]),
+    ax.imshow(rgb_scaled, extent=(transform[2],
+                                  transform[2] + transform[0] * rgb_scaled.shape[1],
+                                  transform[5] + transform[4] * rgb_scaled.shape[0],
+                                  transform[5]),
               origin="upper")
+
+    # Plot del shape con línea visible
+    shapes = gpd.read_file(shape)
+    shapes.boundary.plot(ax=ax, color='green', linewidth=3)  
+
     add_north_arrow(ax)
-    add_scale_bar(ax, transform_recorte)
-    add_legend(ax, show_rbios=True)
+    add_scale_bar(ax, transform)
+    add_legend(ax, legend_type="rgb")  # Leyenda específica para RGB
     ax.axis("off")
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
     plt.savefig(output_path, dpi=300, bbox_inches="tight", pad_inches=0)
     plt.show()
 
 
-def process_flood_mask(ruta_mascara, geometry, output_path, transform):
+def process_flood_mask(flood, shape, output_path):
     """
     Procesa la máscara de inundación y guarda la visualización.
     """
-    with rasterio.open(ruta_mascara) as src:
-        mascara, out_transform = mask(src, geometry, crop=True)
-        simbolizada = np.zeros((mascara.shape[1], mascara.shape[2], 4), dtype=np.uint8)
-        simbolizada[mascara[0] == 0] = [255, 255, 255, 255]
-        simbolizada[mascara[0] == 1] = [0, 0, 255, 255]
-        simbolizada[mascara[0] == 2] = [64, 64, 64, 255]
+    with rasterio.open(flood) as src:
+        geometry = gpd.read_file(shape).geometry.values
+        mask_data, transform = mask(src, geometry, crop=True)
+        simbolizada = np.zeros((mask_data.shape[1], mask_data.shape[2], 4), dtype=np.uint8)
+        simbolizada[mask_data[0] == 0] = [255, 255, 255, 255]
+        simbolizada[mask_data[0] == 1] = [0, 0, 255, 255]
+        simbolizada[mask_data[0] == 2] = [64, 64, 64, 255]
 
     fig, ax = plt.subplots(figsize=(10, 10))
-    ax.imshow(simbolizada, extent=(out_transform[2],
-                                   out_transform[2] + out_transform[0] * simbolizada.shape[1],
-                                   out_transform[5] + out_transform[4] * simbolizada.shape[0],
-                                   out_transform[5]),
+    ax.imshow(simbolizada, extent=(transform[2],
+                                   transform[2] + transform[0] * simbolizada.shape[1],
+                                   transform[5] + transform[4] * simbolizada.shape[0],
+                                   transform[5]),
               origin="upper")
+
+    # Plot del shape con línea visible
+    shapes = gpd.read_file(shape)
+    shapes.boundary.plot(ax=ax, color='green', linewidth=3)  
+
     add_north_arrow(ax)
-    add_scale_bar(ax, out_transform)
-    add_legend(ax, show_rbios=True)
+    add_scale_bar(ax, transform)
+    add_legend(ax, legend_type="flood")  # Leyenda específica para la máscara de agua
     ax.axis("off")
     plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
     plt.savefig(output_path, dpi=300, bbox_inches="tight", pad_inches=0)

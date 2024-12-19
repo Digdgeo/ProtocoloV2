@@ -22,6 +22,10 @@ from osgeo import gdal, gdalconst
 from datetime import datetime, date
 from rasterstats import zonal_stats
 
+# Añadimos la ruta con el código a nuestro pythonpath para poder importar la clase Landsat
+sys.path.append('/root/git/ProtocoloV2/codigo')
+from utils import process_composition_rgb, process_flood_mask
+
 from pymongo import MongoClient
 client = MongoClient()
 
@@ -73,7 +77,10 @@ class Product(object):
         # Salida con la superficie inundada por recinto
         #self.superficie_inundada = os.path.join(self.pro_escena, 'superficie_inundada.csv')
         
-
+        # Salida de los jpgs para el Observatrio del Cambio Global
+        self.rbios = os.path.join(self.data, 'RBIOS.shp')
+        self.out_OCG = "/mnt/productos_inundaciones/imgs"
+        
         # Tenemos que definir el sensor para coger los valores adecuados de Fmask
         if 'oli' in self.escena:
             self.sensor = 'OLI'
@@ -141,11 +148,11 @@ class Product(object):
         # Conexión a PostgreSQL
         try:
             self.pg_connection = psycopg2.connect(
-                host=os.getenv("POSTGRES_HOST", "10.17.14.140"),
-                database=os.getenv("POSTGRES_DB", "productos_inundaciones"),
-                user=os.getenv("POSTGRES_USER", "diegog"),
-                password=os.getenv("POSTGRES_PASSWORD", "cambi4_PASSW@"),
-                port=int(os.getenv("POSTGRES_PORT", 5432))
+            host="x",
+            database="x",
+            user="x",
+            password="x",
+            port="x"
             )
             self.pg_cursor = self.pg_connection.cursor()
             print("Conexión a PostgreSQL establecida correctamente.")
@@ -161,6 +168,23 @@ class Product(object):
 
         # Crear tabla datos_inundacion (si es necesario)
         self.crear_tabla_recintos()
+
+
+    def generate_composition_rgb(self):
+        process_composition_rgb(
+            self.swir1,
+            self.nir,
+            self.blue,
+            self.rbios,
+            f"{self.out_OCG}/{self.escena}_rgb.jpg"
+        )
+
+    def generate_flood_mask(self):
+        process_flood_mask(
+            self.flood_escena,
+            self.rbios,
+            f"{self.out_OCG}/{self.escena}_flood.jpg"
+        )
 
 
     def crear_tabla_lagunas(self):
@@ -195,7 +219,7 @@ class Product(object):
         
         try:
             create_table_query = """
-            CREATE TABLE lagunas_principales (
+            CREATE TABLE IF NOT EXISTS lagunas_principales (
             id SERIAL PRIMARY KEY, -- Clave primaria autonumérica
             _id TEXT NOT NULL,     -- Identificador único de la escena (único pero no clave primaria)
             usgs_id TEXT,          -- ID opcional
@@ -208,10 +232,9 @@ class Product(object):
             """
             self.pg_cursor.execute(create_table_query)
             self.pg_connection.commit()
-            print("Tabla 'lagunas_nombre' creada o ya existente.")
+            print("Tabla 'lagunas_principales' creada o ya existente.")
         except Exception as e:
-            print(f"Error al crear la tabla 'lagunas_nombre': {e}")
-            raise
+            print(f"Error al crear la tabla 'lagunas_principales': {e}")
         
 
     
@@ -1138,8 +1161,11 @@ class Product(object):
             self.calcular_inundacion_lagunas_principales()
             # Mandar los datos a la base de PostgreSQL
             self.enviar_inundacion_a_postgres()
-            # Faltaría enviar lagunas principales se lla directamente desde el método que las calcula
+            # Lagunas principales se llama directamente desde el método que las calcula
             self.enviar_resumen_lagunas_a_postgres()
+            # Procesar y enviar jpgs para el Observatorio del 
+            self.generate_composition_rgb()
+            self.generate_flood_mask()
             
         except Exception as e:
             
