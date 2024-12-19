@@ -417,3 +417,127 @@ def ejecutar_script():
 # Ejecutar el script
 if __name__ == "__main__":
     ejecutar_script()
+
+
+#################################################################################################
+# Exportar los jpgs de la escena y la máscara de agua para Penelope
+#################################################################################################
+
+import geopandas as gpd
+import rasterio
+from rasterio.mask import mask
+from matplotlib.patches import Patch
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+def add_north_arrow(ax, position=(0.1, 0.1), size=15, label="N"):
+    """
+    Añade una flecha de norte al gráfico.
+    """
+    ax.annotate(
+        label,
+        xy=(position[0], position[1] + 0.1),  # Flecha apunta hacia arriba
+        xytext=position,
+        xycoords='axes fraction',
+        textcoords='axes fraction',
+        arrowprops=dict(facecolor='black', width=2, headwidth=8, headlength=10),
+        fontsize=size,
+        ha='center'
+    )
+
+
+def add_scale_bar(ax, transform, length=5000, location=(0.1, 0.05), height=0.005):
+    """
+    Añade una barra de escala con 3 segmentos alternados (negro-blanco-negro) y un recuadro negro alrededor.
+    """
+    resolution_x = transform[0]  # Resolución en X (m/píxel)
+    relative_bar_length = length / (resolution_x * 1000)
+    bar_x_start = location[0]
+    bar_x_end = bar_x_start + relative_bar_length
+
+    segment_width = relative_bar_length / 3
+    bar_x_mid = bar_x_start + segment_width
+
+    ax.add_patch(plt.Rectangle((bar_x_start, location[1] - height * 0.1), relative_bar_length, height * 1.2,
+                                edgecolor="black", facecolor="none", linewidth=1.5, transform=ax.transAxes))
+    ax.add_patch(plt.Rectangle((bar_x_start, location[1]), segment_width, height, color="black", transform=ax.transAxes))
+    ax.add_patch(plt.Rectangle((bar_x_mid, location[1]), segment_width, height, color="white", transform=ax.transAxes))
+    ax.add_patch(plt.Rectangle((bar_x_mid + segment_width, location[1]), segment_width, height, color="black", transform=ax.transAxes))
+
+    ax.text(bar_x_start, location[1] - 0.02, "0", fontsize=10, ha="center", va="top", transform=ax.transAxes)
+    ax.text(bar_x_end, location[1] - 0.02, f"{length} m", fontsize=10, ha="center", va="top", transform=ax.transAxes)
+
+
+def add_legend(ax, show_rbios=False, line_width=2):
+    """
+    Añade una leyenda al gráfico.
+    """
+    legend_elements = []
+    if show_rbios:
+        legend_elements.append(Patch(facecolor='none', edgecolor='green', label='Reserva de la Biosfera', linewidth=line_width))
+
+    legend_elements.extend([
+        Patch(facecolor='white', edgecolor='black', label='Seco', linewidth=line_width),
+        Patch(facecolor='blue', edgecolor='black', label='Inundado', linewidth=line_width),
+        Patch(facecolor='gray', edgecolor='black', label='Nubes y Sombra de Nubes', linewidth=line_width)
+    ])
+    
+    ax.legend(handles=legend_elements, loc='lower left', fontsize=10, frameon=False, bbox_to_anchor=(0.1, 0.1))
+
+
+def process_rgb_multiband(ruta_multibanda, geometry, output_path, transform):
+    """
+    Procesa la composición RGB desde un raster multibanda y guarda la visualización.
+    """
+    with rasterio.open(ruta_multibanda) as src:
+        rgb_recortada, transform_recorte = mask(src, geometry, crop=True)
+        nodata_val = src.nodata if src.nodata is not None else -9999
+        rgb_recortada[rgb_recortada == nodata_val] = 0
+
+        rgb_scaled = np.dstack([
+            np.clip((rgb_recortada[0] - 0) / (0.45 - 0), 0, 1),
+            np.clip((rgb_recortada[1] - 0) / (0.45 - 0), 0, 1),
+            np.clip((rgb_recortada[2] - 0) / (0.2 - 0), 0, 1)
+        ])
+        rgb_scaled[np.all(rgb_recortada == 0, axis=0)] = [1, 1, 1]
+
+    fig, ax = plt.subplots(figsize=(10, 10))
+    ax.imshow(rgb_scaled, extent=(transform_recorte[2],
+                                  transform_recorte[2] + transform_recorte[0] * rgb_scaled.shape[1],
+                                  transform_recorte[5] + transform_recorte[4] * rgb_scaled.shape[0],
+                                  transform_recorte[5]),
+              origin="upper")
+    add_north_arrow(ax)
+    add_scale_bar(ax, transform_recorte)
+    add_legend(ax, show_rbios=True)
+    ax.axis("off")
+    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
+    plt.savefig(output_path, dpi=300, bbox_inches="tight", pad_inches=0)
+    plt.show()
+
+
+def process_flood_mask(ruta_mascara, geometry, output_path, transform):
+    """
+    Procesa la máscara de inundación y guarda la visualización.
+    """
+    with rasterio.open(ruta_mascara) as src:
+        mascara, out_transform = mask(src, geometry, crop=True)
+        simbolizada = np.zeros((mascara.shape[1], mascara.shape[2], 4), dtype=np.uint8)
+        simbolizada[mascara[0] == 0] = [255, 255, 255, 255]
+        simbolizada[mascara[0] == 1] = [0, 0, 255, 255]
+        simbolizada[mascara[0] == 2] = [64, 64, 64, 255]
+
+    fig, ax = plt.subplots(figsize=(10, 10))
+    ax.imshow(simbolizada, extent=(out_transform[2],
+                                   out_transform[2] + out_transform[0] * simbolizada.shape[1],
+                                   out_transform[5] + out_transform[4] * simbolizada.shape[0],
+                                   out_transform[5]),
+              origin="upper")
+    add_north_arrow(ax)
+    add_scale_bar(ax, out_transform)
+    add_legend(ax, show_rbios=True)
+    ax.axis("off")
+    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
+    plt.savefig(output_path, dpi=300, bbox_inches="tight", pad_inches=0)
+    plt.show()
