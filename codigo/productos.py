@@ -78,8 +78,11 @@ class Product(object):
         #self.superficie_inundada = os.path.join(self.pro_escena, 'superficie_inundada.csv')
         
         # Salida de los jpgs para el Observatrio del Cambio Global
+        # PRO
         self.rbios = os.path.join(self.data, 'RBIOS.shp')
-        self.out_OCG = "/mnt/productos_inundaciones/imgs"
+        self.out_OCG = "/mnt/productos_inundaciones2"
+        # VPS
+        self.out_OCG_VPS = "/mnt/productos_inundaciones2_VPS"
         
         # Tenemos que definir el sensor para coger los valores adecuados de Fmask
         if 'oli' in self.escena:
@@ -95,7 +98,7 @@ class Product(object):
         if self.sensor == 'OLI':
             self.cloud_mask_values = [21824, 21952]
         else:
-            self.cloud_mask_values = [5440, 5504]
+            self.cloud_mask_values = [1, 5440, 5504] # 1 es el valor de los gaps
 
         for i in os.listdir(self.nor_escena):
             if re.search('tif$', i):
@@ -145,145 +148,29 @@ class Product(object):
             
         print('escena importada para productos correctamente')
 
-        # Conexión a PostgreSQL
-        try:
-            self.pg_connection = psycopg2.connect(
-            host="x",
-            database="x",
-            user="x",
-            password="x",
-            port="x"
-            )
-            self.pg_cursor = self.pg_connection.cursor()
-            print("Conexión a PostgreSQL establecida correctamente.")
-        except Exception as e:
-            print(f"Error al conectar con PostgreSQL: {e}")
-            raise
-
-        # Crear tabla resumen_lagunas
-        self.crear_tabla_lagunas()
-
-        # Crear tabla lagunas principales
-        self.crear_tabla_lagunas_principales()
-
-        # Crear tabla datos_inundacion (si es necesario)
-        self.crear_tabla_recintos()
-
-
+        
     def generate_composition_rgb(self):
+        
+        """Genera la composición RGB en pro_escena (sobrescribe si existe)."""
+        output_path = os.path.join(self.pro_escena, f"{self.escena}_rgb.jpg")
         process_composition_rgb(
             self.swir1,
             self.nir,
             self.blue,
             self.rbios,
-            f"{self.out_OCG}/{self.escena}_rgb.jpg"
+            output_path
         )
 
     def generate_flood_mask(self):
+        
+        """Genera la imagen de la máscara de inundación en pro_escena (sobrescribe si existe)."""
+        output_path = os.path.join(self.pro_escena, f"{self.escena}_flood.jpg")
         process_flood_mask(
             self.flood_escena,
             self.rbios,
-            f"{self.out_OCG}/{self.escena}_flood.jpg"
+            output_path
         )
-
-
-    def crear_tabla_lagunas(self):
-        """Crea la tabla resumen_lagunas en PostgreSQL si no existe."""
-        
-        try:
             
-            create_table_query = """
-            CREATE TABLE IF NOT EXISTS resumen_lagunas (
-                id SERIAL PRIMARY KEY,
-                _id TEXT NOT NULL UNIQUE,
-                usgs_id TEXT,
-                numero_cuerpos_con_agua INTEGER,
-                porcentaje_cuerpos_con_agua DOUBLE PRECISION,
-                superficie_total_inundada DOUBLE PRECISION,
-                porcentaje_inundacion DOUBLE PRECISION
-            );
-            """
-            self.pg_cursor.execute(create_table_query)
-            self.pg_connection.commit()
-            print("Tabla 'resumen_lagunas' creada o ya existente.")
-            
-        except Exception as e:
-            
-            print(f"Error al crear la tabla 'resumen_lagunas': {e}")
-            raise
-
-
-    def crear_tabla_lagunas_principales(self):
-        
-        """Crea una tabla en PostgreSQL para almacenar datos de las lagunas con nombre."""
-        
-        try:
-            create_table_query = """
-            CREATE TABLE IF NOT EXISTS lagunas_principales (
-            id SERIAL PRIMARY KEY, -- Clave primaria autonumérica
-            _id TEXT NOT NULL,     -- Identificador único de la escena (único pero no clave primaria)
-            usgs_id TEXT,          -- ID opcional
-            nombre TEXT NOT NULL,  -- Nombre de la laguna
-            superficie_total DOUBLE PRECISION, -- Área total
-            superficie_inundada DOUBLE PRECISION, -- Área inundada
-            porcentaje_inundacion DOUBLE PRECISION, -- Porcentaje de inundación
-            UNIQUE (_id, nombre)   -- Índice único en combinación de _id y nombre
-            );
-            """
-            self.pg_cursor.execute(create_table_query)
-            self.pg_connection.commit()
-            print("Tabla 'lagunas_principales' creada o ya existente.")
-        except Exception as e:
-            print(f"Error al crear la tabla 'lagunas_principales': {e}")
-        
-
-    
-    def crear_tabla_recintos(self):
-        
-        """Crea la tabla datos_inundacion en PostgreSQL si no existe."""
-        
-        try:
-            
-            create_table_query = """
-            CREATE TABLE IF NOT EXISTS datos_inundacion (
-                id SERIAL PRIMARY KEY,
-                _id TEXT NOT NULL UNIQUE,
-                usgs_id TEXT,
-                fecha TIMESTAMP,
-                el_rincon_del_pescador DOUBLE PRECISION,
-                marismillas DOUBLE PRECISION,
-                caracoles DOUBLE PRECISION,
-                fao DOUBLE PRECISION,
-                marisma_occidental DOUBLE PRECISION,
-                marisma_oriental DOUBLE PRECISION,
-                entremuros DOUBLE PRECISION
-            );
-            """
-            self.pg_cursor.execute(create_table_query)
-            self.pg_connection.commit()
-            print("Tabla 'datos_inundacion' creada o ya existente.")
-            
-        except Exception as e:
-            
-            print(f"Error al crear la tabla 'datos_inundacion': {e}")
-            raise
-
-    def cerrar_conexion_postgres(self):
-        
-        """Cierra la conexión con PostgreSQL."""
-        
-        try:
-            
-            if hasattr(self, "pg_cursor"):
-                self.pg_cursor.close()
-            if hasattr(self, "pg_connection"):
-                self.pg_connection.close()
-            print("Conexión a PostgreSQL cerrada correctamente.")
-            
-        except Exception as e:
-            
-            print(f"Error al cerrar la conexión a PostgreSQL: {e}")
-        
         
     def ndvi(self):
 
@@ -810,31 +697,23 @@ class Product(object):
         print(f"Superficie inundada para la escena {self.escena} ha sido actualizada en MongoDB.")
 
 
+    # CSV version
     def calcular_inundacion_lagunas(self):
-
-        """
-        Calcula la superficie inundada para las lagunas y actualiza MongoDB.
         
-        Args:
-            None
-        
-        Updates:
-            MongoDB: Actualiza el campo "Flood.Lagunas" con:
-                - Número de lagunas con agua
-                - Superficie total inundada
-                - Porcentaje inundado respecto al área total teórica
         """
-
-
+        Calcula la superficie inundada para las lagunas, actualiza MongoDB y guarda resultados en CSV.
+        """
+    
         lagunas = gpd.read_file(self.lagunas)
+    
         # 1. Cargar la máscara de inundación
         with rasterio.open(self.flood_escena) as src:
             resolution = src.res[0] * src.res[1]  # Resolución del píxel en unidades de área
-
+    
         # 2. Calcular el área máxima teórica de inundación
         lagunas["area_total"] = lagunas.geometry.area / 10000
         area_maxima_teorica = lagunas["area_total"].sum()
-
+    
         # 3. Calcular estadísticas zonales
         stats = zonal_stats(
             lagunas,
@@ -843,67 +722,88 @@ class Product(object):
             raster_out=False,
             geojson_out=False,
         )
-
+    
         # 4. Añadir superficie inundada a la capa de lagunas
         lagunas["area_inundada"] = [
             (stat["sum"] or 0) * resolution / 10000 for stat in stats
-        ]  # Multiplicamos por la resolución para obtener el área en unidades reales
-
+        ]
+    
         # 5. Calcular métricas
         lagunas_con_agua = lagunas[lagunas["area_inundada"] > 0]
         numero_lagunas_con_agua = len(lagunas_con_agua)
         superficie_total_inundada = lagunas_con_agua["area_inundada"].sum()
         porcentaje_inundado = (superficie_total_inundada / area_maxima_teorica) * 100
-
+    
         # 6. Guardar resultados en el diccionario
         self.resultados_lagunas = {
             "numero_lagunas_con_agua": numero_lagunas_con_agua,
             "superficie_total_inundada": superficie_total_inundada,
             "porcentaje_inundado": porcentaje_inundado,
         }
-
+    
         # 7. Mostrar resultados
         print(f"Número de lagunas con agua: {numero_lagunas_con_agua}")
         print(f"Superficie total inundada: {superficie_total_inundada:.2f} ha")
         print(f"Porcentaje de inundación respecto al total teórico: {porcentaje_inundado:.2f}%")
-
+    
         # 8. Guardar resultados en MongoDB dentro de Flood
         try:
-                
-            # Actualizar el campo Flood en el documento correspondiente
             db.update_one(
-                {"_id": self.escena},  # Ajusta el filtro según tus datos
-                {"$set": {"Flood.Lagunas": self.resultados_lagunas}},  # Añadir Lagunas al campo Flood
+                {"_id": self.escena},
+                {"$set": {"Flood.Lagunas": self.resultados_lagunas}},
                 upsert=True
             )
             print("Resultados de lagunas guardados en MongoDB correctamente.")
         except Exception as e:
             print(f"Error al guardar en MongoDB: {e}")
+    
+        # 9. Guardar resultados en CSV
+        resumen = pd.DataFrame([{
+            "_id": self.escena,
+            "numero_lagunas_con_agua": numero_lagunas_con_agua,
+            "superficie_total_inundada": superficie_total_inundada,
+            "porcentaje_inundado": porcentaje_inundado
+        }])
+        resumen_path = os.path.join(self.pro_escena, "resumen_lagunas_carola.csv")
+        resumen.to_csv(resumen_path, index=False)
+    
+        lagunas_out = lagunas.drop(columns="geometry")
+        lagunas_out["escena"] = self.escena
+        lagunas_path = os.path.join(self.pro_escena, "lagunas_carola.csv")
+        lagunas_out.to_csv(lagunas_path, index=False)
+    
+        print(f"✅ Resultados guardados en CSV: {resumen_path} y {lagunas_path}")
+
 
 
     def calcular_inundacion_lagunas_principales(self):
         
-        """Calcula la inundación para lagunas principales (aquellas con toponimo no nulo) y actualiza MongoDB y PostgreSQL."""
+        """
+        Calcula la inundación para lagunas principales (con toponimo no nulo), 
+        actualiza MongoDB y devuelve el lagunas_dict para guardar en CSV.
+        
+        Returns:
+            list: Lista de diccionarios con información por laguna principal.
+        """
         
         try:
             # Leer la capa de lagunas
             lagunas = gpd.read_file(self.lagunas)
-            
-            # Filtrar lagunas con toponimo no nulo y crear una copia independiente
+    
+            # Filtrar lagunas con toponimo no nulo
             lagunas_principales = lagunas[lagunas["TOPONIMO"].notnull()].copy()
-            
-            # Verificar si hay lagunas principales
+    
             if lagunas_principales.empty:
-                print("No hay lagunas principales con 'toponimo' definido.")
-                return
-            
-            # Calcular área total para las lagunas principales
-            lagunas_principales["area_total"] = lagunas_principales.geometry.area / 10000  # Calcula en hectáreas
-            
+                print("⚠️ No hay lagunas principales con 'toponimo' definido.")
+                return []
+    
+            # Calcular área total
+            lagunas_principales["area_total"] = lagunas_principales.geometry.area / 10000
+    
             # Cargar la máscara de inundación
             with rasterio.open(self.flood_escena) as src:
-                resolution = src.res[0] * src.res[1]  # Resolución del píxel en unidades de área
-            
+                resolution = src.res[0] * src.res[1]
+    
             # Calcular estadísticas zonales
             stats = zonal_stats(
                 lagunas_principales,
@@ -912,30 +812,31 @@ class Product(object):
                 raster_out=False,
                 geojson_out=False,
             )
-            
-            # Añadir estadísticas al GeoDataFrame
+    
+            # Añadir estadísticas
             lagunas_principales["area_inundada"] = [
                 (stat["sum"] or 0) * resolution / 10000 for stat in stats
             ]
             lagunas_principales["porcentaje_inundacion"] = (
                 lagunas_principales["area_inundada"] / lagunas_principales["area_total"] * 100
             )
-            
-            # Preparar datos para MongoDB y PostgreSQL
+    
+            # Preparar datos para MongoDB y CSV
             lagunas_dict = lagunas_principales[["TOPONIMO", "area_total", "area_inundada", "porcentaje_inundacion"]].to_dict("records")
-            
+    
             # Actualizar en MongoDB
             db.update_one(
                 {"_id": self.escena},
                 {"$set": {"Flood.LagunasPrincipales": lagunas_dict}},
                 upsert=True
             )
-            print("Resultados de lagunas principales actualizados en MongoDB.")
-            
-            # Guardar en PostgreSQL
-            self.enviar_lagunas_principales_a_postgres(lagunas_dict)
+            print("✅ Resultados de lagunas principales actualizados en MongoDB.")
+    
+            return lagunas_dict
+    
         except Exception as e:
-            print(f"Error calculando inundación para lagunas principales: {e}")
+            print(f"❌ Error calculando inundación para lagunas principales: {e}")
+            return []
 
 
 
@@ -973,131 +874,39 @@ class Product(object):
             print(f"Error durante la exportación: {e}")
 
 
-    def enviar_inundacion_a_postgres(self):
+    # CSV version
+    def guardar_lagunas_principales_en_csv(self, lagunas_dict):
         
         """
-        Envía datos de inundación de la escena actual (self.escena) desde MongoDB a PostgreSQL.
-        """
+        Guarda los datos de las lagunas principales (con toponimo) en un archivo CSV.
         
-        try:
-            # Extraer la escena específica desde MongoDB
-            doc = db.find_one({"_id": self.escena})
-            if doc:
-                _id = doc["_id"]
-                usgs_id = doc.get("usgs_id", None)
-    
-                # Extraer fecha desde _id (primeros 8 caracteres)
-                fecha_str = _id[:8]
-                fecha = datetime.strptime(fecha_str, "%Y%m%d")
-    
-                # Manejar acceso seguro a la lista de Productos
-                productos = doc.get("Productos", [])
-                flood = productos[3].get("Flood", {}) if len(productos) > 3 else {}
-    
-                # Recuperar datos de inundación
-                el_rincon = flood.get("El Rincon del Pescador")
-                marismillas = flood.get("Marismillas")
-                caracoles = flood.get("Caracoles")
-                fao = flood.get("FAO")
-                marisma_occidental = flood.get("Marisma Occidental")
-                marisma_oriental = flood.get("Marisma Oriental")
-                entremuros = flood.get("Entremuros")
-    
-                # Insertar datos en PostgreSQL
-                insert_query = """
-                INSERT INTO datos_inundacion (
-                    _id, usgs_id, fecha, 
-                    el_rincon_del_pescador, marismillas, caracoles, fao,
-                    marisma_occidental, marisma_oriental, entremuros
-                )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (_id)
-                DO UPDATE SET
-                    usgs_id = EXCLUDED.usgs_id,
-                    fecha = EXCLUDED.fecha,
-                    el_rincon_del_pescador = EXCLUDED.el_rincon_del_pescador,
-                    marismillas = EXCLUDED.marismillas,
-                    caracoles = EXCLUDED.caracoles,
-                    fao = EXCLUDED.fao,
-                    marisma_occidental = EXCLUDED.marisma_occidental,
-                    marisma_oriental = EXCLUDED.marisma_oriental,
-                    entremuros = EXCLUDED.entremuros;
-                """
-                self.pg_cursor.execute(insert_query, (
-                    _id, usgs_id, fecha,
-                    el_rincon, marismillas, caracoles, fao,
-                    marisma_occidental, marisma_oriental, entremuros
-                ))
-                self.pg_connection.commit()
-                print(f"Datos de inundación de la escena {_id} enviados a PostgreSQL correctamente.")
-            else:
-                print(f"No se encontró la escena con _id={self.escena} en MongoDB.")
-    
-        except psycopg2.Error as e:
-            self.pg_connection.rollback()
-            print(f"Error procesando la escena {self.escena}: {e}")
-
-
-    def enviar_lagunas_principales_a_postgres(self, lagunas_dict):
-        
-        """Envía los datos de las lagunas principales (con toponimo) a PostgreSQL.
-    
         Args:
             lagunas_dict (list): Lista de diccionarios con datos de lagunas principales.
-                                 Cada diccionario debe incluir los campos:
-                                 - _id (id de la escena)
-                                 - usgs_id (opcional)
-                                 - TOPONIMO (nombre de la laguna)
-                                 - area_total
-                                 - area_inundada
-                                 - porcentaje_inundacion
         """
-        
-        try:
-            
-            for laguna in lagunas_dict:
-                insert_query = """
-                INSERT INTO lagunas_principales (
-                    _id, usgs_id, nombre, superficie_total, superficie_inundada, porcentaje_inundacion
-                )
-                VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (_id, nombre)
-                DO UPDATE SET
-                    superficie_total = EXCLUDED.superficie_total,
-                    superficie_inundada = EXCLUDED.superficie_inundada,
-                    porcentaje_inundacion = EXCLUDED.porcentaje_inundacion;
-                """
-                self.pg_cursor.execute(insert_query, (
-                    self.escena,  # Este es el _id de la escena
-                    laguna.get("usgs_id", None),  # Opcional si existe
-                    laguna["TOPONIMO"],  # TOPONIMO como nombre de la laguna
-                    laguna["area_total"],
-                    laguna["area_inundada"],
-                    laguna["porcentaje_inundacion"]
-                ))
-            self.pg_connection.commit()
-            print("Datos de lagunas principales enviados a PostgreSQL correctamente.")
-            
-        except Exception as e:
-            
-            self.pg_connection.rollback()
-            print(f"Error enviando lagunas principales a PostgreSQL: {e}")
+        for laguna in lagunas_dict:
+            laguna["_id"] = self.escena
+            laguna["usgs_id"] = None  # Puedes adaptarlo si lo tienes
+    
+        df = pd.DataFrame(lagunas_dict)
+        ruta_csv = os.path.join(self.pro_escena, "lagunas_principales.csv")
+        df.to_csv(ruta_csv, index=False)
+        print(f"✅ Lagunas principales guardadas en CSV: {ruta_csv}")
 
 
-    def enviar_resumen_lagunas_a_postgres(self):
+    # CSV Version
+    def guardar_resumen_lagunas_en_csv(self):
         
         """
-        Envía el resumen de las lagunas de la escena actual a PostgreSQL.
+        Guarda el resumen de las lagunas de la escena actual en un archivo CSV.
         """
         
         try:
             print(f"Procesando el resumen de lagunas para la escena: {self.escena}")
     
-            # Cálculo de métricas
-            numero_total_cuerpos = len(gpd.read_file(self.lagunas))  # Total de lagunas en el shapefile
+            numero_total_cuerpos = len(gpd.read_file(self.lagunas))
             numero_cuerpos_con_agua = int(self.resultados_lagunas.get("numero_lagunas_con_agua", 0))
-            superficie_total_inundada = float(self.resultados_lagunas.get("superficie_total_inundada", 0))  # Convertir a float
-            porcentaje_inundacion = float(self.resultados_lagunas.get("porcentaje_inundado", 0))  # Convertir a float
+            superficie_total_inundada = float(self.resultados_lagunas.get("superficie_total_inundada", 0))
+            porcentaje_inundacion = float(self.resultados_lagunas.get("porcentaje_inundado", 0))
             porcentaje_cuerpos_con_agua = (
                 float(numero_cuerpos_con_agua / numero_total_cuerpos * 100)
                 if numero_total_cuerpos > 0 else 0.0
@@ -1107,70 +916,100 @@ class Product(object):
             doc = db.find_one({"_id": self.escena})
             usgs_id = doc.get("usgs_id", None) if doc else None
     
-            # Insertar en PostgreSQL
-            insert_query = """
-            INSERT INTO resumen_lagunas (
-                _id, usgs_id, numero_cuerpos_con_agua, porcentaje_cuerpos_con_agua,
-                superficie_total_inundada, porcentaje_inundacion
-            )
-            VALUES (%s, %s, %s, %s, %s, %s)
-            ON CONFLICT (_id)
-            DO UPDATE SET
-                usgs_id = EXCLUDED.usgs_id,
-                numero_cuerpos_con_agua = EXCLUDED.numero_cuerpos_con_agua,
-                porcentaje_cuerpos_con_agua = EXCLUDED.porcentaje_cuerpos_con_agua,
-                superficie_total_inundada = EXCLUDED.superficie_total_inundada,
-                porcentaje_inundacion = EXCLUDED.porcentaje_inundacion;
-            """
-            self.pg_cursor.execute(insert_query, (
-                self.escena, usgs_id, numero_cuerpos_con_agua,
-                porcentaje_cuerpos_con_agua, superficie_total_inundada, porcentaje_inundacion
-            ))
+            # Crear DataFrame y guardar
+            df = pd.DataFrame([{
+                "_id": self.escena,
+                "usgs_id": usgs_id,
+                "numero_cuerpos_con_agua": numero_cuerpos_con_agua,
+                "porcentaje_cuerpos_con_agua": porcentaje_cuerpos_con_agua,
+                "superficie_total_inundada": superficie_total_inundada,
+                "porcentaje_inundacion": porcentaje_inundacion
+            }])
     
-            # Confirmar los cambios
-            self.pg_connection.commit()
-            print(f"Resumen de lagunas de la escena {self.escena} enviado a PostgreSQL correctamente.")
+            ruta_csv = os.path.join(self.pro_escena, "resumen_lagunas.csv")
+            df.to_csv(ruta_csv, index=False)
+            print(f"✅ Resumen de lagunas guardado en CSV: {ruta_csv}")
     
-        except psycopg2.Error as e:
-            self.pg_connection.rollback()
-            print(f"Error procesando el resumen de lagunas de la escena {self.escena}: {e}")
+        except Exception as e:
+            print(f"⚠️ Error procesando el resumen de lagunas de la escena {self.escena}: {e}")
+
+
+    def movidas_de_servidores(self):
+        
+        """Mueve los productos finales a una subcarpeta y la copia a los servidores remotos."""
+        import glob
     
+        # Ruta de carpeta destino dentro de pro_escena (la carpeta se llama igual que la escena)
+        carpeta_final = os.path.join(self.pro_escena, self.escena)
+        try:
+            os.makedirs(carpeta_final, exist_ok=True)
+        except Exception as e:
+            print(f"[ERROR] No se pudo crear la carpeta '{carpeta_final}': {e}")
+            return
+    
+        # Mover todos los PNGs y CSVs generados en pro_escena hacia esa subcarpeta
+        patrones = ["*.png", "*.csv"]
+        archivos = []
+        for patron in patrones:
+            archivos.extend(glob.glob(os.path.join(self.pro_escena, patron)))
+    
+        for archivo in archivos:
+            try:
+                shutil.move(archivo, carpeta_final)
+            except Exception as e:
+                print(f"[ERROR] Al mover '{archivo}': {e}")
+    
+        # Copiar esa carpeta a los dos servidores
+        destinos = [self.out_OCG, self.out_OCG_VPS]
+        for destino in destinos:
+            destino_completo = os.path.join(destino, self.escena)
+            try:
+                shutil.copytree(carpeta_final, destino_completo, dirs_exist_ok=True)
+                print(f"[OK] Carpeta copiada a {destino_completo}")
+            except Exception as e:
+                print(f"[ERROR] No se pudo copiar a '{destino_completo}': {e}")
+
 
     def run(self):
-
-        """Ejecuta el flujo completo de generación de productos.
-
-        Calcula NDVI, NDWI, MNDWI, máscara de inundación, turbidez, profundidad, y la superficie
-        inundada, actualizando los productos correspondientes en la base de datos.
+        
         """
-
+        Ejecuta el flujo completo de generación de productos.
+    
+        Calcula NDVI, NDWI, MNDWI, máscara de inundación, turbidez, profundidad,
+        y la superficie inundada, actualizando productos en MongoDB y guardando resultados como CSV.
+        """
+        
         try:
-            
             print('Comenzando el procesamiento de productos...')
-            # Calculamos los productos
+    
+            # Cálculo de productos
             self.ndvi()
             self.ndwi()
             self.mndwi()
             self.flood()
             self.turbidity()
             self.depth()
-            # Obtenemos la superficie inundada en los recintos de la marisma
+    
+            # Superficie inundada en recintos de la marisma
             self.get_flood_surface()
-            # Calculamos la inundación en las lagunas (capa Carola). Sumatorio y principales
+    
+            # Inundación en lagunas (capa Carola)
             self.calcular_inundacion_lagunas()
-            self.calcular_inundacion_lagunas_principales()
-            # Mandar los datos a la base de PostgreSQL
-            self.enviar_inundacion_a_postgres()
-            # Lagunas principales se llama directamente desde el método que las calcula
-            self.enviar_resumen_lagunas_a_postgres()
-            # Procesar y enviar jpgs para el Observatorio del 
+    
+            # Inundación en lagunas principales
+            lagunas_dict = self.calcular_inundacion_lagunas_principales()
+    
+            # Guardar todos los CSV
+            #self.guardar_inundacion_en_csv()
+            self.guardar_resumen_lagunas_en_csv()
+            if lagunas_dict:
+                self.guardar_lagunas_principales_en_csv(lagunas_dict)
+    
+            # Composición RGB y máscara de agua (JPGs)
+            print('vamos a enviar las imágenes a vps y pro')
             self.generate_composition_rgb()
             self.generate_flood_mask()
-            
+            self.movidas_de_servidores()
+    
         except Exception as e:
-            
-            print(f"Error durante el procesamiento: {e}")
-            
-        finally:
-            
-            self.cerrar_conexion_postgres()
+            print(f"⚠️ Error durante el procesamiento: {e}")
