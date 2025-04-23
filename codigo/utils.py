@@ -94,7 +94,8 @@ def enviar_notificacion_finalizada(info_escena, archivo_adjunto=None, exito=True
     cuerpo = f"""
     Hola equipo LAST,
 
-    Soy el bot del Protocolo de Dieguito, de todos los bots el más... ¿Qué os voy a decir ya que no sepáis a estas alturas?
+    Soy el bot del Protocolo de Dieguito, de todos los bots el que más está hasta los... ¿circuitos internos? de la USGS
+    y sus cambios en las políticas de acceso y tipos de procesado.
 
     Este es un mail automático enviado desde la máquina virtual cloudlast01
     para informaros de que la escena {info_escena.get('escena', 'N/A')} ha sido {estado}. 
