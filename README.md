@@ -1,4 +1,4 @@
-# Protocolo V2 🤖
+# 🤖 Protocolo V2 
 
 Hi There! 👋
 
@@ -52,7 +52,6 @@ All the magic is orchestrated and controlled by `download.py`, which automates t
 - [ ] Make the Docs (coming soon! 📖)
 - [ ] Create a video tutorial (🎥)
 - [x] Check old and new water masks (six checked) (done! ✅)
-- [ ] Test new thresholds and try to resolve Trebujena crop issues
 - [x] Add hydroperiod collection to database and enable filtering by clouds in preparation (done! ✅)
 - [x] **Important**: Create `lunch scripts` using `argparse` to run them from `crontab`
 - [ ] Make this a python package where reference image and PIAs are parameters of the class
