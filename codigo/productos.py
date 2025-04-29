@@ -3,6 +3,7 @@ import shutil
 import re
 import time
 import subprocess
+import glob
 import pandas
 import rasterio
 import sys
@@ -25,6 +26,7 @@ from rasterstats import zonal_stats
 # Añadimos la ruta con el código a nuestro pythonpath para poder importar la clase Landsat
 sys.path.append('/root/git/ProtocoloV2/codigo')
 from utils import process_composition_rgb, process_flood_mask
+from coast import Coast
 
 from pymongo import MongoClient
 client = MongoClient()
@@ -152,7 +154,7 @@ class Product(object):
     def generate_composition_rgb(self):
         
         """Genera la composición RGB en pro_escena (sobrescribe si existe)."""
-        output_path = os.path.join(self.pro_escena, f"{self.escena}_rgb.jpg")
+        output_path = os.path.join(self.pro_escena, f"{self.escena}_rgb.png")
         process_composition_rgb(
             self.swir1,
             self.nir,
@@ -164,7 +166,7 @@ class Product(object):
     def generate_flood_mask(self):
         
         """Genera la imagen de la máscara de inundación en pro_escena (sobrescribe si existe)."""
-        output_path = os.path.join(self.pro_escena, f"{self.escena}_flood.jpg")
+        output_path = os.path.join(self.pro_escena, f"{self.escena}_flood.png")
         process_flood_mask(
             self.flood_escena,
             self.rbios,
@@ -617,7 +619,7 @@ class Product(object):
         inundada en hectáreas para cada zona. Los resultados se guardan en un archivo CSV y en la base de datos.
         """
         
-        print('Vamos a calcualr la superficie inundada para los recintos de la marisma')
+        print('Vamos a calcular la superficie inundada para los recintos de la marisma')
         # Cargar el raster de la máscara de agua
         with rasterio.open(self.flood_escena) as src:
             raster_data = src.read(1)  # Leer la primera banda
@@ -651,7 +653,7 @@ class Product(object):
         resultados_df = pd.DataFrame(resultados)
     
         # Guardar los resultados en un archivo CSV (opcional)
-        resultados_df.to_csv(os.path.join(self.pro_escena, 'superficie_inundada.csv'), index=False)
+        resultados_df.to_csv(os.path.join(self.pro_escena, 'superficie_inundada.csv'), index=False, encoding="utf-8-sig")
     
         #return resultados_df
         
@@ -765,12 +767,12 @@ class Product(object):
             "porcentaje_inundado": porcentaje_inundado
         }])
         resumen_path = os.path.join(self.pro_escena, "resumen_lagunas_carola.csv")
-        resumen.to_csv(resumen_path, index=False)
+        resumen.to_csv(resumen_path, index=False, encoding="utf-8-sig")
     
         lagunas_out = lagunas.drop(columns="geometry")
         lagunas_out["escena"] = self.escena
         lagunas_path = os.path.join(self.pro_escena, "lagunas_carola.csv")
-        lagunas_out.to_csv(lagunas_path, index=False)
+        lagunas_out.to_csv(lagunas_path, index=False, encoding="utf-8-sig")
     
         print(f"✅ Resultados guardados en CSV: {resumen_path} y {lagunas_path}")
 
@@ -864,7 +866,7 @@ class Product(object):
                 elif formato == "csv":
                     # Convertir los documentos a un DataFrame de Pandas
                     df = pd.DataFrame(documentos)
-                    df.to_csv(f"{ruta_destino}/{coleccion_nombre}.csv", index=False)
+                    df.to_csv(f"{ruta_destino}/{coleccion_nombre}.csv", index=False, encoding="utf-8-sig")
                     print(f"Colección '{coleccion_nombre}' exportada a CSV en {ruta_destino}")
 
                 else:
@@ -889,7 +891,7 @@ class Product(object):
     
         df = pd.DataFrame(lagunas_dict)
         ruta_csv = os.path.join(self.pro_escena, "lagunas_principales.csv")
-        df.to_csv(ruta_csv, index=False)
+        df.to_csv(ruta_csv, index=False, encoding="utf-8-sig")
         print(f"✅ Lagunas principales guardadas en CSV: {ruta_csv}")
 
 
@@ -927,19 +929,73 @@ class Product(object):
             }])
     
             ruta_csv = os.path.join(self.pro_escena, "resumen_lagunas.csv")
-            df.to_csv(ruta_csv, index=False)
+            df.to_csv(ruta_csv, index=False, encoding="utf-8-sig")
             print(f"✅ Resumen de lagunas guardado en CSV: {ruta_csv}")
     
         except Exception as e:
             print(f"⚠️ Error procesando el resumen de lagunas de la escena {self.escena}: {e}")
 
 
+    def calcular_inundacion_censo(self):
+        
+        """
+        Calcula la superficie inundada para los polígonos del censo aéreo L3,
+        guarda los resultados en un CSV y actualiza la base de datos MongoDB.
+        """
+    
+        try:
+            # Leer el shapefile del censo aéreo
+            censo = gpd.read_file(os.path.join(self.data, "censo_aereo_l3.shp"))
+            
+            # Cargar la máscara de inundación
+            with rasterio.open(self.flood_escena) as src:
+                resolution = src.res[0] * src.res[1]  # Área de un píxel
+    
+            # Calcular estadísticas zonales
+            stats = zonal_stats(
+                censo,
+                self.flood_escena,
+                stats=["sum"],
+                raster_out=False,
+                geojson_out=False,
+            )
+    
+            # Crear DataFrame de resultados
+            censo["superficie_inundada"] = [
+                (stat["sum"] or 0) * resolution / 10000 for stat in stats  # pasamos a hectáreas
+            ]
+    
+            # Seleccionar solo los campos que nos interesan
+            censo_out = censo[["Name", "descriptio", "superficie_inundada"]]
+    
+            # Añadir campo escena para trazabilidad
+            censo_out["escena"] = self.escena
+    
+            # Guardar en CSV con codificación UTF-8
+            censo_out_path = os.path.join(self.pro_escena, "censo_aereo_l3.csv")
+            censo_out.to_csv(censo_out_path, index=False, encoding="utf-8-sig")
+    
+            print(f"✅ Resultados del censo aéreo guardados en: {censo_out_path}")
+    
+            # ---- Actualizar en MongoDB ----
+            censo_dict = censo_out[["Name", "descriptio", "superficie_inundada"]].to_dict(orient="records")
+            db.update_one(
+                {"_id": self.escena},
+                {"$set": {"Flood.CensoAereo": censo_dict}},
+                upsert=True
+            )
+            print(f"✅ Resultados del censo aéreo actualizados en MongoDB para escena {self.escena}.")
+    
+        except Exception as e:
+            print(f"❌ Error calculando inundación para censo aéreo: {e}")
+
+
+
     def movidas_de_servidores(self):
         
-        """Mueve los productos finales a una subcarpeta y la copia a los servidores remotos."""
-        import glob
+        """Mueve los productos finales a una subcarpeta y los copia a los servidores remotos usando scp sin contraseña."""
     
-        # Ruta de carpeta destino dentro de pro_escena (la carpeta se llama igual que la escena)
+        # Crear carpeta final con el nombre de la escena dentro de self.pro_escena
         carpeta_final = os.path.join(self.pro_escena, self.escena)
         try:
             os.makedirs(carpeta_final, exist_ok=True)
@@ -947,7 +1003,7 @@ class Product(object):
             print(f"[ERROR] No se pudo crear la carpeta '{carpeta_final}': {e}")
             return
     
-        # Mover todos los PNGs y CSVs generados en pro_escena hacia esa subcarpeta
+        # Mover todos los archivos PNG y CSV a la subcarpeta final
         patrones = ["*.png", "*.csv"]
         archivos = []
         for patron in patrones:
@@ -955,19 +1011,33 @@ class Product(object):
     
         for archivo in archivos:
             try:
-                shutil.move(archivo, carpeta_final)
+                nombre_original = os.path.basename(archivo)
+                if archivo.endswith(".csv"):
+                    nombre_nuevo = f"{self.escena}_{nombre_original}"
+                else:
+                    nombre_nuevo = nombre_original  # .png u otros no cambian
+                destino = os.path.join(carpeta_final, nombre_nuevo)
+                shutil.move(archivo, destino)
             except Exception as e:
                 print(f"[ERROR] Al mover '{archivo}': {e}")
     
-        # Copiar esa carpeta a los dos servidores
-        destinos = [self.out_OCG, self.out_OCG_VPS]
-        for destino in destinos:
-            destino_completo = os.path.join(destino, self.escena)
+        # Hosts remotos definidos en ~/.ssh/config
+        servidores = {
+            "vps84": "/srv/productos_recibidos_last",
+            "vps83": "/srv/productos_recibidos_last"
+        }
+    
+        for host, ruta_remota in servidores.items():
             try:
-                shutil.copytree(carpeta_final, destino_completo, dirs_exist_ok=True)
-                print(f"[OK] Carpeta copiada a {destino_completo}")
-            except Exception as e:
-                print(f"[ERROR] No se pudo copiar a '{destino_completo}': {e}")
+                print(f"[INFO] Copiando a {host}...")
+                comando = [
+                    "scp", "-r", carpeta_final,
+                    f"{host}:{ruta_remota}/"
+                ]
+                subprocess.check_call(comando)
+                print(f"[OK] Copia completada en {host}")
+            except subprocess.CalledProcessError as e:
+                print(f"[ERROR] Falló la copia a {host}: {e}")
 
 
     def run(self):
@@ -1004,12 +1074,18 @@ class Product(object):
             self.guardar_resumen_lagunas_en_csv()
             if lagunas_dict:
                 self.guardar_lagunas_principales_en_csv(lagunas_dict)
+            # Censo Aereo Nivel 3
+            self.calcular_inundacion_censo()
     
             # Composición RGB y máscara de agua (JPGs)
             print('vamos a enviar las imágenes a vps y pro')
             self.generate_composition_rgb()
             self.generate_flood_mask()
             self.movidas_de_servidores()
+
+            # Línea de costa
+            c = Coast(self.pro_escena)
+            c.run()
     
         except Exception as e:
             print(f"⚠️ Error durante el procesamiento: {e}")
