@@ -1,4 +1,4 @@
-# Protocolo V2
+# Protocolo V2 🤖
 
 Hi There! 👋
 
@@ -8,16 +8,18 @@ While we're just getting started (this is still a private repo), we have some ex
 
 ## What's Inside
 
-This repo is centered around two main classes:
+This repo is centered around three main classes:
 - **`Landsat`**: Handles the normalization and processing of Landsat images.
 - **`Products`**: Generates the derived products such as NDVI, water turbidity, and flood masks.
+- **`Coast`**: Extracts the coastline (wet/dry line) from flood masks within the Espacio Natural de Doñana and assigns each line the corresponding sea level height from the Bonanza tide gauge.
 
-However, all the magic is orchestrated and controlled by `download.py`, which automates the entire workflow.
+All the magic is orchestrated and controlled by `download.py`, which automates the entire workflow.
 
 ## Features
 
 - Normalize Landsat images using **PIAs** (Pseudo Invariant Areas).
 - Generate various environmental products such as NDVI, flood masks, and turbidity maps.
+- Extract and store coastline lines associated with tide levels.
 - Process multiple scenes automatically and store results in a MongoDB database.
 - Hydroperiod calculation for wetland management.
 
@@ -25,7 +27,8 @@ However, all the magic is orchestrated and controlled by `download.py`, which au
 
 1. **Normalization Process**: The main script handles Landsat normalization using PIAs.
 2. **Product Generation**: Use the `Products` class to generate NDVI, turbidity, and other key products.
-3. **Data Handling**: All job control and automation are managed by `download.py`.
+3. **Coastline Extraction**: Use the `Coast` class to extract the wet/dry boundary and assign tide gauge levels.
+4. **Data Handling**: All job control and automation are managed by `download.py`.
 
 ## Installation
 
