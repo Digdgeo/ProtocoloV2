@@ -1,10 +1,11 @@
 # 🤖 Protocolo V2 
 
+![Version](https://img.shields.io/badge/version-0.2.2-blue.svg)
+
 Hi There! 👋
 
-Welcome to **Protocolo V2**—the second official (though technically the fifth!) version of the Landsat image normalization process based on **Pseudo Invariant Areas (PIAs)**. This project aims to automate the processing of Landsat data and generate derived products such as NDVI, inundation masks, turbidity maps, and more.
-
-While we're just getting started (this is still a private repo), we have some exciting things in the works! So stay tuned for updates.
+Welcome to Protocolo V2 🤖 — the latest and most advanced iteration of our Landsat image normalization and processing workflow. Built around the concept of Pseudo Invariant Areas (PIAs), this project fully automates the generation of high-quality environmental products such as NDVI maps, inundation masks, turbidity estimates, and coastal lines enhanced with sea level data from tide gauges.
+Whether you are managing wetlands, monitoring coastal dynamics, or simply exploring large-scale Earth observation data, Protocolo V2 provides a robust, modular, and scalable solution ready for operational use.
 
 ## What's Inside
 
