@@ -646,6 +646,7 @@ class Product(object):
     
             # Añadir los resultados al DataFrame
             resultados.append({
+                '_id': self.escena,
                 'nombre': nombre,
                 'superficie_inundada': superficie_inundada
             })
@@ -770,7 +771,7 @@ class Product(object):
         resumen.to_csv(resumen_path, index=False, encoding="utf-8-sig")
     
         lagunas_out = lagunas.drop(columns="geometry")
-        lagunas_out["escena"] = self.escena
+        lagunas_out["_id"] = self.escena
         lagunas_path = os.path.join(self.pro_escena, "lagunas_carola.csv")
         lagunas_out.to_csv(lagunas_path, index=False, encoding="utf-8-sig")
     
@@ -969,7 +970,7 @@ class Product(object):
             censo_out = censo[["Name", "descriptio", "superficie_inundada"]]
     
             # Añadir campo escena para trazabilidad
-            censo_out["escena"] = self.escena
+            censo_out["_id"] = self.escena
     
             # Guardar en CSV con codificación UTF-8
             censo_out_path = os.path.join(self.pro_escena, "censo_aereo_l3.csv")
