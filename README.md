@@ -1,6 +1,6 @@
-# 🤖 Protocolo V2 
+# 🤖 Protocolo V2
 
-![Version](https://img.shields.io/badge/version-0.2.2-blue.svg)
+![Version](https://img.shields.io/badge/version-2.2.3-blue.svg)
 
 Hi There! 👋
 
@@ -10,6 +10,7 @@ Whether you are managing wetlands, monitoring coastal dynamics, or simply explor
 ## What's Inside
 
 This repo is centered around three main classes:
+
 - **`Landsat`**: Handles the normalization and processing of Landsat images.
 - **`Products`**: Generates the derived products such as NDVI, water turbidity, and flood masks.
 - **`Coast`**: Extracts the coastline (wet/dry line) from flood masks within the Espacio Natural de Doñana and assigns each line the corresponding sea level height from the Bonanza tide gauge.
@@ -34,11 +35,14 @@ All the magic is orchestrated and controlled by `download.py`, which automates t
 ## Installation
 
 1. Clone this repository:
+
     ```bash
     git clone https://your-repo-url.git
     cd your-repo-folder
     ```
+
 2. Install the required dependencies:
+
     ```bash
     pip install -r requirements.txt
     ```
