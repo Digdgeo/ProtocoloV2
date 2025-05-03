@@ -19,6 +19,7 @@ import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
 from rasterio.features import geometry_mask
+from rasterio.mask import mask
 from osgeo import gdal, gdalconst
 from datetime import datetime, date
 from rasterstats import zonal_stats
@@ -619,88 +620,88 @@ class Product(object):
         Utiliza un shapefile de recintos de marisma y una máscara de inundación para calcular la superficie 
         inundada en hectáreas para cada zona. Los resultados se guardan en un archivo CSV y en la base de datos.
         """
-        
-        print('Vamos a calcular la superficie inundada para los recintos de la marisma')
-        
-        # Cargar el raster de la máscara de agua
-        with rasterio.open(self.flood_escena) as src:
-            raster_data = src.read(1)
-            raster_transform = src.transform
-            raster_crs = src.crs
     
-        # Cargar el shapefile de las zonas de marisma
-        zonas_marisma = gpd.read_file(self.recintos)
-        zonas_marisma = zonas_marisma.to_crs(raster_crs)
+        try:
+            
+            # Leer el shapefile de recintos
+            gdf = gpd.read_file(self.recintos).to_crs("EPSG:32629")
+            gdf["area_total"] = gdf.geometry.area / 10000  # en hectáreas
     
-        resultados = []
+            inundacion_dict = {}
+            lista_csv = []
     
-        for index, row in zonas_marisma.iterrows():
-            nombre = row['Nombre']
-            geom = row['geometry']
+            total_inundado = 0
+            total_area = 0
     
-            # Crear una máscara para el polígono actual
-            mask = geometry_mask([geom], transform=raster_transform, invert=True, out_shape=raster_data.shape)
+            with rasterio.open(self.flood_escena) as src:
+                for _, row in gdf.iterrows():
+                    nombre = row["Nombre"]
+                    try:
+                        geom = [row["geometry"]]
+                        out_image, out_transform = mask(dataset=src, shapes=geom, crop=True)
+                        out_image = out_image[0]
+                        pixel_area = abs(src.res[0] * src.res[1])
+                        flooded_area = np.sum(out_image == 1) * pixel_area / 10000  # ha
+                        area_total = row["area_total"]
+                        porcentaje = 100 * flooded_area / area_total if area_total else 0
     
-            # Calcular superficie total y superficie inundada (en hectáreas)
-            superficie_total = geom.area / 10000
-            superficie_inundada = ((raster_data[mask] == 1).sum() * raster_transform[0] ** 2) / 10000
+                        inundacion_dict[nombre] = {
+                            "area_inundada": round(flooded_area, 2),
+                            "porcentaje_inundacion": round(porcentaje, 2),
+                            "area_total": round(area_total, 2)
+                        }
     
-            resultados.append({
-                '_id': self.escena,
-                'nombre': nombre,
-                'superficie_inundada': superficie_inundada,
-                'superficie_total': superficie_total,
-                'porcentaje': (superficie_inundada / superficie_total * 100) if superficie_total > 0 else 0
+                        lista_csv.append({
+                            "_id": nombre,
+                            "area_inundada": round(flooded_area, 2),
+                            "porcentaje_inundacion": round(porcentaje, 2),
+                            "area_total": round(area_total, 2)
+                        })
+    
+                        total_inundado += flooded_area
+                        total_area += area_total
+    
+                    except Exception as e:
+                        print(f"⚠️ Error en recinto {nombre}:", e)
+    
+            # Añadir la fila total al CSV
+            if total_area:
+                porcentaje_total = 100 * total_inundado / total_area
+            else:
+                porcentaje_total = 0
+    
+            lista_csv.append({
+                "_id": "Total",
+                "area_inundada": round(total_inundado, 2),
+                "porcentaje_inundacion": round(porcentaje_total, 2),
+                "area_total": round(total_area, 2)
             })
     
-        resultados_df = pd.DataFrame(resultados)
+            inundacion_dict["Total"] = {
+                "area_inundada": round(total_inundado, 2),
+                "porcentaje_inundacion": round(porcentaje_total, 2),
+                "area_total": round(total_area, 2)
+            }
     
-        # --- CÁLCULO DE TOTALES ---
-        total_inundada = resultados_df["superficie_inundada"].sum()
-        total_superficie = resultados_df["superficie_total"].sum()
-        porcentaje_total = (total_inundada / total_superficie) * 100 if total_superficie > 0 else 0
+            # Guardar CSV
+            df = pd.DataFrame(lista_csv)
+            csv_path = os.path.join(self.pro_escena, f"{self.escena}_superficie_inundada.csv")
+            df.to_csv(csv_path, index=False)
+            print(f"CSV guardado en: {csv_path}")
     
-        # --- FORMATO CSV ---
-        tabla = resultados_df.set_index("nombre")[["superficie_inundada", "porcentaje"]].T
-        tabla["variable"] = tabla.index
-        tabla.insert(0, "_id", self.escena)
-        tabla["Total"] = [total_inundada, porcentaje_total]
+            # Guardar en MongoDB
+            db.update_one(
+                {"_id": self.escena},
+                {
+                    "$set": {"Flood_Data.Marismas": inundacion_dict},
+                    "$addToSet": {"Productos": "Flood"}
+                }
+            )
+            print("Datos de inundación actualizados en MongoDB correctamente.")
     
-        columnas = ["_id", "variable"] + [c for c in tabla.columns if c not in ["_id", "variable"]]
-        tabla = tabla[columnas]
-    
-        tabla.to_csv(os.path.join(self.pro_escena, 'superficie_inundada.csv'), index=False, encoding="utf-8-sig")
-    
-        # --- MONGODB ---
-        inundacion_dict = resultados_df.set_index('nombre')['superficie_inundada'].to_dict()
-    
-        # Añadir resumen al diccionario
-        inundacion_dict["__resumen__"] = {
-            "superficie_total_marisma": total_superficie,
-            "superficie_inundada_total": total_inundada,
-            "porcentaje_total_inundado": porcentaje_total
-        }
-    
-        documento = db.find_one({"_id": self.escena})
-    
-        if documento and "Productos" in documento:
-            productos = documento["Productos"]
-    
-            flood_exists = False
-            for index, producto in enumerate(productos):
-                if producto == "Flood":
-                    productos[index] = {"Flood": inundacion_dict}
-                    flood_exists = True
-                    break
-    
-            if not flood_exists:
-                productos.append({"Flood": inundacion_dict})
-    
-            db.update_one({"_id": self.escena}, {"$set": {"Productos": productos}})
-        else:
-            db.update_one({"_id": self.escena}, {"$set": {"Productos": [{"Flood": inundacion_dict}]}})
-    
-        print(f"✅ Superficie inundada para la escena {self.escena} ha sido actualizada en MongoDB.")
+        except Exception as e:
+            print("⚠️ Error durante el procesamiento:", e)
+
 
 
     # CSV version
@@ -756,7 +757,7 @@ class Product(object):
         try:
             db.update_one(
                 {"_id": self.escena},
-                {"$set": {"Flood.Lagunas": self.resultados_lagunas}},
+                {"$set": {"Flood_Data.Lagunas": self.resultados_lagunas}},
                 upsert=True
             )
             print("Resultados de lagunas guardados en MongoDB correctamente.")
@@ -833,7 +834,7 @@ class Product(object):
             # Actualizar en MongoDB
             db.update_one(
                 {"_id": self.escena},
-                {"$set": {"Flood.LagunasPrincipales": lagunas_dict}},
+                {"$set": {"Flood_Data.LagunasPrincipales": lagunas_dict}},
                 upsert=True
             )
             print("✅ Resultados de lagunas principales actualizados en MongoDB.")
@@ -920,12 +921,12 @@ class Product(object):
     
             # Extraer usgs_id de MongoDB
             doc = db.find_one({"_id": self.escena})
-            usgs_id = doc.get("usgs_id", None) if doc else None
+            #usgs_id = doc.get("usgs_id", None) if doc else None
     
             # Crear DataFrame y guardar
             df = pd.DataFrame([{
                 "_id": self.escena,
-                "usgs_id": usgs_id,
+                #"usgs_id": usgs_id,
                 "numero_cuerpos_con_agua": numero_cuerpos_con_agua,
                 "porcentaje_cuerpos_con_agua": porcentaje_cuerpos_con_agua,
                 "superficie_total_inundada": superficie_total_inundada,
@@ -985,7 +986,7 @@ class Product(object):
             censo_dict = censo_out[["Name", "descriptio", "superficie_inundada"]].to_dict(orient="records")
             db.update_one(
                 {"_id": self.escena},
-                {"$set": {"Flood.CensoAereo": censo_dict}},
+                {"$set": {"Flood_Data.CensoAereo": censo_dict}},
                 upsert=True
             )
             print(f"✅ Resultados del censo aéreo actualizados en MongoDB para escena {self.escena}.")
