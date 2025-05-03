@@ -612,26 +612,26 @@ class Product(object):
 
 
     def get_flood_surface(self):
-
-        """Calcula la superficie inundada por zonas de marisma y actualiza MongoDB.
-
+        
+        """
+        Calcula la superficie inundada por zonas de marisma y actualiza MongoDB.
+    
         Utiliza un shapefile de recintos de marisma y una máscara de inundación para calcular la superficie 
         inundada en hectáreas para cada zona. Los resultados se guardan en un archivo CSV y en la base de datos.
         """
         
         print('Vamos a calcular la superficie inundada para los recintos de la marisma')
+        
         # Cargar el raster de la máscara de agua
         with rasterio.open(self.flood_escena) as src:
-            raster_data = src.read(1)  # Leer la primera banda
-            raster_transform = src.transform  # Obtener la transformación del raster
-            raster_crs = src.crs  # Obtener el sistema de referencia del raster
+            raster_data = src.read(1)
+            raster_transform = src.transform
+            raster_crs = src.crs
     
         # Cargar el shapefile de las zonas de marisma
         zonas_marisma = gpd.read_file(self.recintos)
-        zonas_marisma = zonas_marisma.to_crs(raster_crs)  # Reproyectar al CRS del raster si es necesario
+        zonas_marisma = zonas_marisma.to_crs(raster_crs)
     
-        #return raster_data, raster_transform, zonas_marisma
-        # Crear un DataFrame para almacenar los resultados
         resultados = []
     
         for index, row in zonas_marisma.iterrows():
@@ -641,63 +641,66 @@ class Product(object):
             # Crear una máscara para el polígono actual
             mask = geometry_mask([geom], transform=raster_transform, invert=True, out_shape=raster_data.shape)
     
-            # Calcular la superficie inundada
-            superficie_inundada = ((raster_data[mask] == 1).sum() * raster_transform[0] ** 2) / 10000  # Asumiendo que el valor 1 representa agua
+            # Calcular superficie total y superficie inundada (en hectáreas)
+            superficie_total = geom.area / 10000
+            superficie_inundada = ((raster_data[mask] == 1).sum() * raster_transform[0] ** 2) / 10000
     
-            # Añadir los resultados al DataFrame
             resultados.append({
                 '_id': self.escena,
                 'nombre': nombre,
-                'superficie_inundada': superficie_inundada
+                'superficie_inundada': superficie_inundada,
+                'superficie_total': superficie_total,
+                'porcentaje': (superficie_inundada / superficie_total * 100) if superficie_total > 0 else 0
             })
     
         resultados_df = pd.DataFrame(resultados)
     
-        # Guardar los resultados en un archivo CSV (opcional)
-        resultados_df.to_csv(os.path.join(self.pro_escena, 'superficie_inundada.csv'), index=False, encoding="utf-8-sig")
+        # --- CÁLCULO DE TOTALES ---
+        total_inundada = resultados_df["superficie_inundada"].sum()
+        total_superficie = resultados_df["superficie_total"].sum()
+        porcentaje_total = (total_inundada / total_superficie) * 100 if total_superficie > 0 else 0
     
-        #return resultados_df
-        
-        # Convertir el DataFrame en un diccionario
-
+        # --- FORMATO CSV ---
+        tabla = resultados_df.set_index("nombre")[["superficie_inundada", "porcentaje"]].T
+        tabla["variable"] = tabla.index
+        tabla.insert(0, "_id", self.escena)
+        tabla["Total"] = [total_inundada, porcentaje_total]
+    
+        columnas = ["_id", "variable"] + [c for c in tabla.columns if c not in ["_id", "variable"]]
+        tabla = tabla[columnas]
+    
+        tabla.to_csv(os.path.join(self.pro_escena, 'superficie_inundada.csv'), index=False, encoding="utf-8-sig")
+    
+        # --- MONGODB ---
         inundacion_dict = resultados_df.set_index('nombre')['superficie_inundada'].to_dict()
-        
-        # Supongamos que 'self.escena' es el ID del documento en MongoDB
-        #document_id = self.escena
-        
-        # Encuentra el documento por su _id
+    
+        # Añadir resumen al diccionario
+        inundacion_dict["__resumen__"] = {
+            "superficie_total_marisma": total_superficie,
+            "superficie_inundada_total": total_inundada,
+            "porcentaje_total_inundado": porcentaje_total
+        }
+    
         documento = db.find_one({"_id": self.escena})
-        
-        # Si el documento tiene un campo "Productos"
+    
         if documento and "Productos" in documento:
             productos = documento["Productos"]
-            
-            # Verifica si "Flood" ya existe en la lista "Productos"
+    
             flood_exists = False
             for index, producto in enumerate(productos):
                 if producto == "Flood":
-                    # Reemplaza "Flood" con un diccionario
                     productos[index] = {"Flood": inundacion_dict}
                     flood_exists = True
                     break
-            
-            # Si "Flood" no existe, añádelo como un nuevo diccionario
+    
             if not flood_exists:
                 productos.append({"Flood": inundacion_dict})
-            
-            # Actualiza el documento en la base de datos con la nueva lista "Productos"
-            db.update_one(
-                {"_id": self.escena},
-                {"$set": {"Productos": productos}}
-            )
+    
+            db.update_one({"_id": self.escena}, {"$set": {"Productos": productos}})
         else:
-            # Si el documento no tiene un campo "Productos", lo creas y añades "Flood"
-            db.update_one(
-                {"_id": self.escena},
-                {"$set": {"Productos": [{"Flood": inundacion_dict}]}}
-            )
-        
-        print(f"Superficie inundada para la escena {self.escena} ha sido actualizada en MongoDB.")
+            db.update_one({"_id": self.escena}, {"$set": {"Productos": [{"Flood": inundacion_dict}]}})
+    
+        print(f"✅ Superficie inundada para la escena {self.escena} ha sido actualizada en MongoDB.")
 
 
     # CSV version
