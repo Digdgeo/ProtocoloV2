@@ -3,11 +3,10 @@ import sys
 import tarfile
 import datetime
 import requests
-
 from pymongo import MongoClient
 from usgs import api
 
-# Añadimos la ruta con el código a nuestro pythonpath para poder importar la clase Landsat
+# Añadir ruta al código personalizado
 sys.path.append('/root/git/ProtocoloV2/codigo')
 
 from protocolov2 import Landsat
@@ -15,25 +14,38 @@ from productos import Product
 from coast import Coast
 from utils import enviar_correo, enviar_notificacion_finalizada
 
-# Database connection
+# --- FUNCIÓN PARA LOGIN USGS CON LOGOUT AUTOMÁTICO ---
+def get_usgs_api_key(usuario, password):
+
+    """
+    Hace logout si hay sesión activa y luego login para obtener una API key válida.
+    """
+    try:
+        api.logout()
+    except Exception:
+        pass  # Por si no hay sesión activa
+
+    login_info = api.login(usuario, password)
+    return login_info["data"]
+
+# --- PARÁMETROS DE USUARIO ---
+usuario = "USERNAME"  # Cambiar por el nombre de usuario real
+password = "USERPASS"  # Cambiar por la contraseña real
+api_key = get_usgs_api_key(usuario, password)
+
+# --- CONEXIÓN BASE DE DATOS ---
 client = MongoClient()
 database = client.Satelites
 db = database.Landsat
 
-# Parámetros generales
-usuario = "user"
-token = "uyuyuyuyuyuyuyuyuyuyuyuyuyuyuyuyuyuyuyuyqueseve"  # Sustituye por tu token real
-api_key_full = api.login(usuario, token)
-api_key = api_key_full["data"]
-
+# --- FUNCIÓN PRINCIPAL DE DESCARGA ---
 def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
                              process=True, max_cloud_cover=100,
-                             output_dir='/path/to/ori/rar'):
+                             output_dir='/path/to/folder/landsat/v02/ori/rar'):
 
     hoy = datetime.date.today() if end_date is None else datetime.date.fromisoformat(end_date)
     inicio = hoy - datetime.timedelta(days=days_back)
 
-    # Buscar escenas
     response = api.scene_search(
         dataset="landsat_ot_c2_l2",
         lat=latitude,
@@ -48,7 +60,6 @@ def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
     escenas = response.get("data", {}).get("results", [])
     print(f"\n🔍 Se encontraron {len(escenas)} escenas")
 
-    # Filtrar por nuevas y tipo L2SP / T1
     escenas_nuevas = []
     for escena in escenas:
         display_id = escena['displayId']
@@ -58,8 +69,8 @@ def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
                 escenas_nuevas.append(escena)
 
     destinatarios = [
-        'digd.geografo@gmail.com', 'diegogarcia@ebd.csic.es', 'jbustamante@ebd.csic.es',
-        'rdiaz@ebd.csic.es', 'isabelafan@ebd.csic.es', 'daragones@ebd.csic.es', 'gabrielap.romero@ebd.csic.es'
+        'some@gmail.com', 'random@hotmail.es', 'mails@yahoo.es',
+        'go@latinmail.es', 'here@outlook.es'
     ]
 
     if not escenas_nuevas:
@@ -71,9 +82,11 @@ def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
         return
 
     for escena in escenas_nuevas:
+        
         display_id = escena["displayId"]
         entity_id = escena["entityId"]
         mail = 0
+        quicklook = None  # <- para poder usarlo también si hay error
 
         print(f"\n🚀 Procesando escena: {display_id}")
 
@@ -127,6 +140,8 @@ def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
                 tar.extractall(sc_dest)
 
             landsat = Landsat(sc_dest)
+            quicklook = landsat.qk_name  # quicklook disponible incluso si falla .run()
+
             landsat.run()
 
             info_escena = {
@@ -136,14 +151,10 @@ def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
                 'nubes_Doñana': landsat.pn_cover
             }
 
-            quicklook = landsat.qk_name
             print(f"🖼️ Quicklook generado: {quicklook}")
 
             landsatp = Product(landsat.nor_escena)
             landsatp.run()
-
-            landsatc = Coast(landsat.pro_escena)
-            landsatc.run()
 
             try:
                 productos = db.find_one({'_id': landsat.last_name}, {'Productos': 1}).get("Productos", [])
@@ -154,16 +165,17 @@ def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
             except Exception as e:
                 print(f"⚠️ No hay datos de inundación: {e}")
 
-            enviar_notificacion_finalizada(info_escena, quicklook, exito=(mail > 0))
+            enviar_notificacion_finalizada(info_escena, archivo_adjunto=quicklook, exito=(mail > 0))
 
         except Exception as e:
             print(f"❌ Error procesando escena {display_id}: {e}")
+            enviar_notificacion_finalizada({"escena": display_id}, archivo_adjunto=quicklook, exito=False)
 
-# Ejemplo de uso
+
+# --- LLAMADA PRINCIPAL ---
 if __name__ == "__main__":
     download_landsat_scenes(
         latitude=37.05,
         longitude=-6.35,
-        end_date="2025-04-01",
-        days_back=15
+        days_back=2
     )
