@@ -9,7 +9,7 @@
 import os
 import sys
 
-codigo_path = os.path.abspath('../../codigo')
+codigo_path = os.path.abspath('../../')
 print(">>> PATH DE CÓDIGO:", codigo_path)
 sys.path.insert(0, codigo_path)
 
