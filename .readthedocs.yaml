@@ -4,8 +4,8 @@ build:
   tools:
     python: "3.10"
   commands:
-    - sudo apt-get update
-    - sudo apt-get install -y --no-install-recommends libgdal-dev
+    - apt-get update
+    - apt-get install -y --no-install-recommends libgdal-dev
     - gdal-config --version  # Esto intentará verificar la instalación
 sphinx:
   configuration: docs/source/conf.py
