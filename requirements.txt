@@ -218,6 +218,7 @@ snowballstemmer=2.2.0=pypi_0
 snuggs=1.4.7=pyhd3eb1b0_0
 soupsieve=2.5=py310h06a4308_0
 sphinx=8.0.2=pypi_0
+sphinx-rtd-theme
 sphinxcontrib-applehelp=2.0.0=pypi_0
 sphinxcontrib-devhelp=2.0.0=pypi_0
 sphinxcontrib-htmlhelp=2.1.0=pypi_0
