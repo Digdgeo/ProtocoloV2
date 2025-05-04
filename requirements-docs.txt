@@ -1,2 +1,6 @@
 sphinx
 sphinx-rtd-theme
+xarray
+pymongo
+rasterio
+pandas
