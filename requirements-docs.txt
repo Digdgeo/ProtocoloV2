@@ -9,3 +9,5 @@ usgs
 fiona
 seaborn
 psycopg2
+opencv-python
+gdal
