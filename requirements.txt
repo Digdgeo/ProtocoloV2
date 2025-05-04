@@ -31,7 +31,7 @@ exceptiongroup==1.2.0
 executing==0.8.3
 fonttools==4.51.0
 fqdn==1.5.1
-gdal==3.6.2
+gdal==3.10.3
 geopandas==0.14.3 # Añadido, parece una dependencia de tu proyecto
 imagesize==1.4.1
 ipykernel==6.28.0
