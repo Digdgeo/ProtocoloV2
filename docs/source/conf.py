@@ -28,17 +28,7 @@ extensions = [
     'sphinx.ext.viewcode',
 ]
 
-autodoc_mock_imports = [
-    "pymongo",
-    "rasterio",
-    "rasterio.features",
-    "rasterio.mask",
-    "fiona",
-    "psycopg2",
-    "geopandas",
-    "osgeo",
-    "rasterstats"
-]
+#autodoc_mock_imports = ["pymongo", "psycopg2"]
 
 templates_path = ['_templates']
 exclude_patterns = []
