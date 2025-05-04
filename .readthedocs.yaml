@@ -3,10 +3,6 @@ build:
   os: ubuntu-lts-latest
   tools:
     python: "3.10"
-  commands:
-    - apt-get update
-    - apt-get install -y --no-install-recommends libgdal-dev
-    - gdal-config --version  # Esto intentará verificar la instalación
 sphinx:
   configuration: docs/source/conf.py
 python:
