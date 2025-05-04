@@ -25,6 +25,7 @@ release = '2.2.3'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.napoleon',
+    'sphinx.ext.viewcode',
 ]
 
 autodoc_mock_imports = [
