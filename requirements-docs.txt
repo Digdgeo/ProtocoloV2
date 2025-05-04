@@ -4,3 +4,8 @@ xarray
 pymongo
 rasterio
 pandas
+geopandas
+usgs
+fiona
+seaborn
+psycopg2
