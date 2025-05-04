@@ -26,8 +26,8 @@ from rasterstats import zonal_stats
 
 # Añadimos la ruta con el código a nuestro pythonpath para poder importar la clase Landsat
 sys.path.append('/root/git/ProtocoloV2/codigo')
-from utils import process_composition_rgb, process_flood_mask
-from coast import Coast
+from .utils import process_composition_rgb, process_flood_mask
+from .coast import Coast
 
 from pymongo import MongoClient
 client = MongoClient()

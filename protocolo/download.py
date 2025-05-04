@@ -9,10 +9,10 @@ from usgs import api
 # Añadir ruta al código personalizado
 sys.path.append('/root/git/ProtocoloV2/codigo')
 
-from protocolov2 import Landsat
-from productos import Product
-from coast import Coast
-from utils import enviar_correo, enviar_notificacion_finalizada
+from .protocolov2 import Landsat
+from .productos import Product
+from .coast import Coast
+from .utils import enviar_correo, enviar_notificacion_finalizada
 
 # --- FUNCIÓN PARA LOGIN USGS CON LOGOUT AUTOMÁTICO ---
 def get_usgs_api_key(usuario, password):
