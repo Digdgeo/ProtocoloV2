@@ -2,6 +2,6 @@ version: 2
 build:
   os: ubuntu-lts-latest
   tools:
-    python: "3.x"  # Reemplaza con la versión de Python que usas
+    python: "3.10"
 sphinx:
   configuration: docs/source/conf.py
