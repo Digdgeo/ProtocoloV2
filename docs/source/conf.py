@@ -37,7 +37,9 @@ autodoc_mock_imports = [
     "pyogrio",
     "fiona",
     "cv2",
-    "usgs"
+    "usgs",
+    "scipy",
+    "rasterstats"
 ]
 
 templates_path = ['_templates']
