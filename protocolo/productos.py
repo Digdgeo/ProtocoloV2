@@ -683,9 +683,9 @@ class Product(object):
                 "area_total": round(total_area, 2)
             }
     
-            # Guardar CSV
-            df = pd.DataFrame(lista_csv)
-            csv_path = os.path.join(self.pro_escena, f"{self.escena}_superficie_inundada.csv")
+            # Guardar CSV en el nuevo formato
+            df = pd.DataFrame(lista_csv)[["_id", "area_inundada", "porcentaje_inundacion", "area_total"]]
+            csv_path = os.path.join(self.pro_escena, "SUPERFICIE_INUNDADA.csv")
             df.to_csv(csv_path, index=False)
             print(f"CSV guardado en: {csv_path}")
     
