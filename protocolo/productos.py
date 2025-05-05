@@ -685,7 +685,7 @@ class Product(object):
     
             # Guardar CSV en el nuevo formato
             df = pd.DataFrame(lista_csv)[["_id", "area_inundada", "porcentaje_inundacion", "area_total"]]
-            csv_path = os.path.join(self.pro_escena, "SUPERFICIE_INUNDADA.csv")
+            csv_path = os.path.join(self.pro_escena, "superficie_inundada.csv")
             df.to_csv(csv_path, index=False)
             print(f"CSV guardado en: {csv_path}")
     
