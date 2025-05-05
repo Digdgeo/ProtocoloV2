@@ -613,26 +613,25 @@ class Product(object):
 
 
     def get_flood_surface(self):
-        
+
         """
         Calcula la superficie inundada por zonas de marisma y actualiza MongoDB.
-    
+
         Utiliza un shapefile de recintos de marisma y una máscara de inundación para calcular la superficie 
         inundada en hectáreas para cada zona. Los resultados se guardan en un archivo CSV y en la base de datos.
         """
-    
+        
         try:
-            
             # Leer el shapefile de recintos
             gdf = gpd.read_file(self.recintos).to_crs("EPSG:32629")
             gdf["area_total"] = gdf.geometry.area / 10000  # en hectáreas
-    
+
             inundacion_dict = {}
             lista_csv = []
-    
+
             total_inundado = 0
             total_area = 0
-    
+
             with rasterio.open(self.flood_escena) as src:
                 for _, row in gdf.iterrows():
                     nombre = row["Nombre"]
@@ -644,51 +643,52 @@ class Product(object):
                         flooded_area = np.sum(out_image == 1) * pixel_area / 10000  # ha
                         area_total = row["area_total"]
                         porcentaje = 100 * flooded_area / area_total if area_total else 0
-    
+
+                        # Guardar en diccionario para MongoDB
                         inundacion_dict[nombre] = {
                             "area_inundada": round(flooded_area, 2),
                             "porcentaje_inundacion": round(porcentaje, 2),
                             "area_total": round(area_total, 2)
                         }
-    
+
+                        # Guardar en lista para CSV
                         lista_csv.append({
-                            "_id": nombre,
+                            "_id": self.escena,
+                            "recinto": nombre,
                             "area_inundada": round(flooded_area, 2),
                             "porcentaje_inundacion": round(porcentaje, 2),
                             "area_total": round(area_total, 2)
                         })
-    
+
                         total_inundado += flooded_area
                         total_area += area_total
-    
+
                     except Exception as e:
                         print(f"⚠️ Error en recinto {nombre}:", e)
-    
+
             # Añadir la fila total al CSV
-            if total_area:
-                porcentaje_total = 100 * total_inundado / total_area
-            else:
-                porcentaje_total = 0
-    
+            porcentaje_total = 100 * total_inundado / total_area if total_area else 0
+
             lista_csv.append({
-                "_id": "Total",
+                "_id": self.escena,
+                "recinto": "Total",
                 "area_inundada": round(total_inundado, 2),
                 "porcentaje_inundacion": round(porcentaje_total, 2),
                 "area_total": round(total_area, 2)
             })
-    
+
             inundacion_dict["Total"] = {
                 "area_inundada": round(total_inundado, 2),
                 "porcentaje_inundacion": round(porcentaje_total, 2),
                 "area_total": round(total_area, 2)
             }
-    
-            # Guardar CSV en el nuevo formato
-            df = pd.DataFrame(lista_csv)[["_id", "area_inundada", "porcentaje_inundacion", "area_total"]]
+
+            # Guardar CSV
+            df = pd.DataFrame(lista_csv)[["_id", "recinto", "area_inundada", "porcentaje_inundacion", "area_total"]]
             csv_path = os.path.join(self.pro_escena, "superficie_inundada.csv")
             df.to_csv(csv_path, index=False)
             print(f"CSV guardado en: {csv_path}")
-    
+
             # Guardar en MongoDB
             db.update_one(
                 {"_id": self.escena},
@@ -698,11 +698,9 @@ class Product(object):
                 }
             )
             print("Datos de inundación actualizados en MongoDB correctamente.")
-    
+
         except Exception as e:
             print("⚠️ Error durante el procesamiento:", e)
-
-
 
     # CSV version
     def calcular_inundacion_lagunas(self):
