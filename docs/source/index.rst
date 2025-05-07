@@ -15,5 +15,6 @@ documentation for details.
    :caption: Contents:
 
    installation.md
+   usage.md
    modules
    
