@@ -10,3 +10,4 @@ fiona
 seaborn
 psycopg2
 opencv-python
+myst-parser
