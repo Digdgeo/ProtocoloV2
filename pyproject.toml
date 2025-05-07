@@ -1,0 +1,34 @@
+[tool.poetry]
+name = "protocolov2"
+version = "2.2.3"
+description = "Protocolo para la descarga, normalización y procesado de imágenes Landsat Level 2 (Surface Reflectance)"
+authors = ["Diego García Díaz"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "protocolo"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+requests = "*"
+pymongo = "*"
+rasterio = "*"
+numpy = ">=1.24,<2.0"
+seaborn = "*"
+matplotlib = "*"
+scipy = "*"
+gdal = ">=3.9,<3.10"
+pandas = "*"
+fiona = "*"
+geopandas = "*"
+rasterstats = "*"
+pyproj = "*"
+
+[tool.poetry.group.dev.dependencies]
+sphinx = "<8.0"
+myst-parser = "*"
+black = "*"
+pytest = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

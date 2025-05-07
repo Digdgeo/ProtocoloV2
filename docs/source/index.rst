@@ -14,4 +14,6 @@ documentation for details.
    :maxdepth: 2
    :caption: Contents:
 
+   installation.md
    modules
+   

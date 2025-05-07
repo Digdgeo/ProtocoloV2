@@ -33,14 +33,20 @@ autodoc_mock_imports = [
     "osgeo",
     "rasterio",
     "pymongo",
-    "psycopg2",
     "geopandas",
     "pyogrio",
     "fiona",
     "cv2",
     "usgs",
     "scipy",
-    "rasterstats"
+    "rasterstats",
+    "xarray",
+    "bottleneck",
+    "gdal",
+    "h5py",
+    "netCDF4",
+    "skimage",
+    "cv2",
 ]
 
 templates_path = ['_templates']
