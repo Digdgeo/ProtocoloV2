@@ -1,4 +1,4 @@
-# Usage of the Landsat Protocol
+# Usage
 
 This page describes the folder structure and general workflow of the Landsat processing protocol.
 

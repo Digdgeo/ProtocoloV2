@@ -1,4 +1,4 @@
-# Installing the `protocolov2` package
+# Installation
 
 This document explains how to install and run locally the protocol for downloading and processing Landsat Surface Reflectance (Level-2) images.
 
