@@ -1,14 +1,13 @@
-Welcome to protocolo's documentation!
-=====================================
+Welcome to Protocolo Landsat v2
+===============================
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
-   usage
    installation
-   modules
-
+   usage
+   
 Indices and tables
 ==================
 
