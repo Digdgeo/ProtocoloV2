@@ -1,14 +1,12 @@
 version: 2
 
 build:
-  os: ubuntu-lts-latest
+  os: ubuntu-lts
   tools:
     python: "3.10"
   commands:
     - pip install --no-cache-dir -r requirements-docs.txt
     - pip install --no-cache-dir -e .
-    - mkdir -p docs/source/modules
-    - mkdir -p docs/source/_static
     - sphinx-apidoc -o docs/source/modules protocolo --force --module-first
     - sphinx-build -b html docs/source docs/build/html
 

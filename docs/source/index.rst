@@ -1,25 +1,20 @@
-Bienvenido a la documentación de protocoloV2
-============================================
+Welcome to the protocoloV2 Documentation
+========================================
 
-Este proyecto contiene el protocolo de descarga, normalización y procesamiento de escenas Landsat para detectar inundaciones, generar productos derivados y almacenarlos en MongoDB o archivos.
+This project provides a protocol for downloading, normalizing, and processing Landsat scenes to detect floods, generate derived products, and store them in MongoDB or as files.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contenido
+   :caption: Contents
 
    installation
    usage
+   modules/modules
 
-   modules/protocolo.download
-   modules/protocolo.protocolov2
-   modules/protocolo.productos
-   modules/protocolo.coast
-   modules/protocolo.hidroperiodo   
-   modules/protocolo.utils
-
-Índices y tablas
-================
+Indices and tables
+==================
 
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
