@@ -7,9 +7,11 @@ build:
   commands:
     - pip install --no-cache-dir -r requirements-docs.txt
     - pip install --no-cache-dir -e .
+    - mkdir -p docs/source/modules
     - sphinx-apidoc -o docs/source/modules protocolo --force --module-first
-    - sphinx-build -b html docs/source docs/build/html
+    - sphinx-build -b html docs/source docs/_build/html
 
 sphinx:
   configuration: docs/source/conf.py
+
 
