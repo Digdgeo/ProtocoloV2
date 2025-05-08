@@ -4,12 +4,9 @@ build:
   os: ubuntu-lts-latest
   tools:
     python: "3.10"
-  commands:
-    - pip install --no-cache-dir -r requirements-docs.txt
-    - pip install --no-cache-dir -e .
-    - mkdir -p docs/source/modules
-    - sphinx-apidoc --force --separate --module-first -o docs/source/modules protocolo
-    - sphinx-build -b html docs/source docs/build/html  # 👈 FALTABA ESTE
+
+# 👇 Elimina `commands` para que Read the Docs use el flujo estándar
+# (assume que conf.py y index.rst ya están bien configurados)
 
 sphinx:
   configuration: docs/source/conf.py
