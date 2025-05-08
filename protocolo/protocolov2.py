@@ -31,122 +31,123 @@ class Landsat:
     
     """Clase para trabajar con las Landsat de la nueva Collection 2 Level 2 del USGS"""
     
-def __init__(self, ruta_escena, inicializar=True):
-    """Inicializa un objeto Landsat basado en el path de la escena.
+    def __init__(self, ruta_escena, inicializar=True):
+        
+        """Inicializa un objeto Landsat basado en el path de la escena.
 
-    Args:
-        ruta_escena (str): Ruta al directorio de la escena Landsat.
-        inicializar (bool): Si False, no ejecuta el procesamiento completo 
-                            (útil para documentación). Por defecto es True.
-    """
-    self.ruta_escena = ruta_escena
+        Args:
+            ruta_escena (str): Ruta al directorio de la escena Landsat.
+            inicializar (bool): Si False, no ejecuta el procesamiento completo 
+                                (útil para documentación). Por defecto es True.
+        """
+        self.ruta_escena = ruta_escena
 
-    if not inicializar:
-        return
+        if not inicializar:
+            return
 
-    self.escena = os.path.split(self.ruta_escena)[1]
-    self.ori = os.path.split(self.ruta_escena)[0]
-    self.base = os.path.split(self.ori)[0]
+        self.escena = os.path.split(self.ruta_escena)[1]
+        self.ori = os.path.split(self.ruta_escena)[0]
+        self.base = os.path.split(self.ori)[0]
 
-    self.data = os.path.join(self.base, 'data')
-    self.geo = os.path.join(self.base, 'geo')
-    self.rad = os.path.join(self.base, 'rad')
-    self.nor = os.path.join(self.base, 'nor')
-    self.pro = os.path.join(self.base, 'pro')
+        self.data = os.path.join(self.base, 'data')
+        self.geo = os.path.join(self.base, 'geo')
+        self.rad = os.path.join(self.base, 'rad')
+        self.nor = os.path.join(self.base, 'nor')
+        self.pro = os.path.join(self.base, 'pro')
 
-    data_escena = self.escena.split('_')
-    self.sat = "L" + data_escena[0][-1]
-    sensores = {'L4': 'TM', 'L5': 'TM', 'L7': 'ETM+', 'L8': 'OLI', 'L9': 'OLI'}
-    self.sensor = sensores[self.sat]
-    self.nprocesado = data_escena[1]
-    self.path = data_escena[2][:3]
-    self.row = data_escena[2][-3:]
-    self.escena_date = data_escena[3]
-    self.escena_procesado_date = data_escena[4]
-    self.collection = data_escena[5]
-    self.tier = data_escena[6]
+        data_escena = self.escena.split('_')
+        self.sat = "L" + data_escena[0][-1]
+        sensores = {'L4': 'TM', 'L5': 'TM', 'L7': 'ETM+', 'L8': 'OLI', 'L9': 'OLI'}
+        self.sensor = sensores[self.sat]
+        self.nprocesado = data_escena[1]
+        self.path = data_escena[2][:3]
+        self.row = data_escena[2][-3:]
+        self.escena_date = data_escena[3]
+        self.escena_procesado_date = data_escena[4]
+        self.collection = data_escena[5]
+        self.tier = data_escena[6]
 
-    self.cloud_mask_values = [21824, 21952] if self.sensor == 'OLI' else [5440, 5504]
+        self.cloud_mask_values = [21824, 21952] if self.sensor == 'OLI' else [5440, 5504]
 
-    if self.sensor == 'ETM+':
-        self.last_name = (self.escena_date + self.sat + self.sensor[:-1] + self.path + '_' + self.row[1:]).lower()
-    else:
-        self.last_name = (self.escena_date + self.sat + self.sensor + self.path + '_' + self.row[1:]).lower()
+        if self.sensor == 'ETM+':
+            self.last_name = (self.escena_date + self.sat + self.sensor[:-1] + self.path + '_' + self.row[1:]).lower()
+        else:
+            self.last_name = (self.escena_date + self.sat + self.sensor + self.path + '_' + self.row[1:]).lower()
 
-    self.pro_escena = os.path.join(self.pro, self.last_name)
-    os.makedirs(self.pro_escena, exist_ok=True)
+        self.pro_escena = os.path.join(self.pro, self.last_name)
+        os.makedirs(self.pro_escena, exist_ok=True)
 
-    self.geo_escena = os.path.join(self.geo, self.last_name)
-    os.makedirs(self.geo_escena, exist_ok=True)
+        self.geo_escena = os.path.join(self.geo, self.last_name)
+        os.makedirs(self.geo_escena, exist_ok=True)
 
-    self.rad_escena = os.path.join(self.rad, self.last_name)
-    os.makedirs(self.rad_escena, exist_ok=True)
+        self.rad_escena = os.path.join(self.rad, self.last_name)
+        os.makedirs(self.rad_escena, exist_ok=True)
 
-    self.nor_escena = os.path.join(self.nor, self.last_name)
-    os.makedirs(self.nor_escena, exist_ok=True)
+        self.nor_escena = os.path.join(self.nor, self.last_name)
+        os.makedirs(self.nor_escena, exist_ok=True)
 
-    self.equilibrado = os.path.join(self.data, 'Equilibrada.tif')
-    self.noequilibrado = os.path.join(self.data, 'NoEquilibrada.tif')
-    self.parametrosnor = {}
-    self.iter = 1
+        self.equilibrado = os.path.join(self.data, 'Equilibrada.tif')
+        self.noequilibrado = os.path.join(self.data, 'NoEquilibrada.tif')
+        self.parametrosnor = {}
+        self.iter = 1
 
-    self.mtl = {}
-    for i in os.listdir(self.ruta_escena):
-        if i.endswith('MTL.txt'):
-            mtl = os.path.join(self.ruta_escena, i)
-            with open(mtl, 'r') as f:
-                for line in f.readlines():
-                    if "=" in line:
-                        l = line.split("=")
-                        self.mtl[l[0].strip()] = l[1].strip()
-
-    if self.sat in ['L8', 'L9']:
+        self.mtl = {}
         for i in os.listdir(self.ruta_escena):
-            if i.endswith('.TIF'):
-                banda = os.path.splitext(i)[0].split('_')[-1]
-                setattr(self, banda.lower(), os.path.join(self.ruta_escena, i))
-    elif self.sat in ['L7', 'L5']:
-        for i in os.listdir(self.ruta_escena):
-            if i.endswith('.TIF'):
-                banda = os.path.splitext(i)[0].split('_')[-1]
-                setattr(self, banda.lower(), os.path.join(self.ruta_escena, i))
+            if i.endswith('MTL.txt'):
+                mtl = os.path.join(self.ruta_escena, i)
+                with open(mtl, 'r') as f:
+                    for line in f.readlines():
+                        if "=" in line:
+                            l = line.split("=")
+                            self.mtl[l[0].strip()] = l[1].strip()
 
-    url_base = 'https://landsatlook.usgs.gov/gen-browse?size=rrb&type=refl&product_id={}'.format(self.mtl['LANDSAT_PRODUCT_ID'].strip('""'))
-    self.qk_name = os.path.join(self.ruta_escena, self.escena + '_Quicklook.jpeg')
+        if self.sat in ['L8', 'L9']:
+            for i in os.listdir(self.ruta_escena):
+                if i.endswith('.TIF'):
+                    banda = os.path.splitext(i)[0].split('_')[-1]
+                    setattr(self, banda.lower(), os.path.join(self.ruta_escena, i))
+        elif self.sat in ['L7', 'L5']:
+            for i in os.listdir(self.ruta_escena):
+                if i.endswith('.TIF'):
+                    banda = os.path.splitext(i)[0].split('_')[-1]
+                    setattr(self, banda.lower(), os.path.join(self.ruta_escena, i))
 
-    if not os.path.exists(self.qk_name):
-        with open(self.qk_name, 'wb') as qk:
-            qk.write(urlopen(url_base).read())
-        print('Quicklook descargado')
-    else:
-        print('El Quicklook ya estaba previamente descargado')
+        url_base = 'https://landsatlook.usgs.gov/gen-browse?size=rrb&type=refl&product_id={}'.format(self.mtl['LANDSAT_PRODUCT_ID'].strip('""'))
+        self.qk_name = os.path.join(self.ruta_escena, self.escena + '_Quicklook.jpeg')
 
-    print('Landsat iniciada con éxito')
+        if not os.path.exists(self.qk_name):
+            with open(self.qk_name, 'wb') as qk:
+                qk.write(urlopen(url_base).read())
+            print('Quicklook descargado')
+        else:
+            print('El Quicklook ya estaba previamente descargado')
 
-    self.pn_cover = None
-    self.newesc = {
-        '_id': self.last_name,
-        'usgs_id': self.mtl['LANDSAT_SCENE_ID'][1:-1],
-        'tier_id': self.mtl['LANDSAT_PRODUCT_ID'][1:-1],
-        'lpgs': self.mtl['PROCESSING_SOFTWARE_VERSION'][1:-1],
-        'category': self.mtl['COLLECTION_CATEGORY'][1:-1],
-        'Clouds': {
-            'cloud_scene': float(self.mtl['CLOUD_COVER']),
-            'land cloud cover': float(self.mtl['CLOUD_COVER_LAND'])
-        },
-        'Info': {
-            'Tecnico': 'LAST-EBD Auto',
-            'Iniciada': datetime.now(),
-            'Pasos': {'rad': '', 'nor': ''}
+        print('Landsat iniciada con éxito')
+
+        self.pn_cover = None
+        self.newesc = {
+            '_id': self.last_name,
+            'usgs_id': self.mtl['LANDSAT_SCENE_ID'][1:-1],
+            'tier_id': self.mtl['LANDSAT_PRODUCT_ID'][1:-1],
+            'lpgs': self.mtl['PROCESSING_SOFTWARE_VERSION'][1:-1],
+            'category': self.mtl['COLLECTION_CATEGORY'][1:-1],
+            'Clouds': {
+                'cloud_scene': float(self.mtl['CLOUD_COVER']),
+                'land cloud cover': float(self.mtl['CLOUD_COVER_LAND'])
+            },
+            'Info': {
+                'Tecnico': 'LAST-EBD Auto',
+                'Iniciada': datetime.now(),
+                'Pasos': {'rad': '', 'nor': ''}
+            }
         }
-    }
 
-    try:
-        db.insert_one(self.newesc)
-    except Exception:
-        db.update_one({'_id': self.last_name}, {'$set': {'Info.Iniciada': datetime.now()}}, upsert=True)
+        try:
+            db.insert_one(self.newesc)
+        except Exception:
+            db.update_one({'_id': self.last_name}, {'$set': {'Info.Iniciada': datetime.now()}}, upsert=True)
 
-    print('Landsat instanciada y subida a la base de datos')
+        print('Landsat instanciada y subida a la base de datos')
 
 
     def get_hillshade(self):
