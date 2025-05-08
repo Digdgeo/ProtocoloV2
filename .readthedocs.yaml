@@ -5,13 +5,12 @@ build:
   tools:
     python: "3.10"
   commands:
-    # 1. Instala todas las dependencias de docs (incluyendo sphinx)
+    # 1. Instala todas las deps de docs (incluyendo sphinx)
     - pip install --no-cache-dir -r requirements-docs.txt
     # 2. Instala tu paquete
     - pip install --no-cache-dir -e .
-    # 3. Genera los .rst
-    - sphinx-apidoc --force --separate --module-first \
-        -o docs/source/protocolo protocolo
+    # 3. Genera los .rst sin backslashes
+    - sphinx-apidoc --force --separate --module-first -o docs/source/protocolo protocolo
 
 sphinx:
   configuration: docs/source/conf.py
