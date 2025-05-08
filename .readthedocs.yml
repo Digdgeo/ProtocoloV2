@@ -1,7 +1,7 @@
 version: 2
 
 build:
-  os: ubuntu-lts-latest
+  os: ubuntu-22.04
   tools:
     python: "3.10"
   commands:
@@ -9,12 +9,21 @@ build:
     - pip install --no-cache-dir -e .
     - mkdir -p docs/source/modules
     - sphinx-apidoc -o docs/source/modules protocolo --force --module-first
-    - ls -la docs/source/modules
-    - cat docs/source/modules/modules.rst
-    - sphinx-build -b html docs/source $READTHEDOCS_OUTPUT/html
+    # Añadir :member-order: bysource a los .rst generados
+    - |
+      for file in docs/source/modules/*.rst; do
+        if grep -q ":members:" "$file"; then
+          grep -q ":member-order: bysource" "$file" || \
+          sed -i "/:members:/a \ \  :member-order: bysource" "$file"
+        else
+          sed -i "/^\.\. automodule::/a \ \ :members:\n\ \ :member-order: bysource" "$file"
+        fi
+      done
+    - sphinx-build -b html docs/source docs/_build/html
 
 sphinx:
   configuration: docs/source/conf.py
+
 
 
 
