@@ -299,8 +299,8 @@ class Landsat:
 
 
     def apply_gapfill(self):
-        
-         """
+
+        """
         Apply gap-filling to Landsat 7 bands acquired after June 2003.
 
         This method checks if the scene comes from Landsat 7 and was acquired after
@@ -312,15 +312,14 @@ class Landsat:
         Raises:
             RuntimeError: If a band cannot be opened or processed.
         """
-         
         # Verificar si es Landsat 7 y la fecha de adquisición es posterior a junio de 2003
         if self.sat == "L7" and datetime.strptime(self.escena_date, "%Y%m%d") > datetime(2003, 6, 1):
             print("Aplicando gapfill a las bandas de Landsat 7 posteriores a junio de 2003.")
-    
+
             for band_path in [self.blue, self.green, self.red, self.nir, self.swir1, self.swir2]:
                 if band_path and os.path.exists(band_path):  # Asegurar que la banda existe
                     print(f"Aplicando gapfill a la banda {band_path}")
-    
+
                     # Usar GDAL para llenar los valores NoData en el archivo original
                     src_ds = gdal.Open(band_path, gdalconst.GA_Update)
                     if src_ds is not None:
@@ -328,7 +327,7 @@ class Landsat:
                         src_ds = None  # Liberar el dataset después de modificar
                     else:
                         print(f"No se pudo abrir la banda {band_path} para gapfill.")
-    
+
             print("Gapfill aplicado exitosamente a las bandas de Landsat 7.")
 
 
