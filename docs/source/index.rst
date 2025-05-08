@@ -1,19 +1,25 @@
-.. Protocolo Landsat v2 documentation master file, created by
-   sphinx-quickstart on Sun May  4 13:23:12 2025.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+Bienvenido a la documentación de protocoloV2
+============================================
 
-Protocolo Landsat v2 documentation
-==================================
-
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
+Este proyecto contiene el protocolo de descarga, normalización y procesamiento de escenas Landsat para detectar inundaciones, generar productos derivados y almacenarlos en MongoDB o archivos.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Contenido
 
    installation
    usage
-   modules/protocolo
+
+   modules/protocolo.download
+   modules/protocolo.protocolov2
+   modules/protocolo.productos
+   modules/protocolo.coast
+   modules/protocolo.hidroperiodo   
+   modules/protocolo.utils
+
+Índices y tablas
+================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
