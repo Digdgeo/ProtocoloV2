@@ -7,7 +7,8 @@ Welcome to Protocolo Landsat v2
 
    installation
    usage
-   
+   modules/modules
+
 Indices and tables
 ==================
 
