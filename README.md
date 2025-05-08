@@ -93,12 +93,13 @@ venv\Scripts\activate     # Windows
 ## To Do List 📝
 
 - [x] Include script for executing hydroperiod (data preparation) (done! ✅)
-- [x] Make the Docs 📖
+- [x] Make the Docs 📖 (done! ✅)
 - [ ] Create a video tutorial (🎥)
 - [x] Check old and new water masks (six checked) (done! ✅)
 - [x] Add hydroperiod collection to database and enable filtering by clouds in preparation (done! ✅)
-- [x] **Important**: Create `lunch scripts` using `argparse` to run them from `crontab`
-- [x] Make this a python package where reference image and PIAs are parameters of the class
+- [x] **Important**: Create `lunch scripts` using `argparse` to run them from `crontab` (done! ✅)
+- [x] Make this a python package where reference image and PIAs are parameters of the class (done! ✅)
+- [ ] Add Sentinel 2 class to protocolov2 (next big step)
 
 ## Contributing
 
