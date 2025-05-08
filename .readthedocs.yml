@@ -8,7 +8,6 @@ build:
     - pip install --no-cache-dir -r requirements-docs.txt
     - pip install --no-cache-dir -e .
     - mkdir -p docs/source/modules
-    - sphinx-apidoc --force --separate --module-first --no-toc -o docs/source/modules protocolo
     - sphinx-build -b html docs/source docs/build/html
 
 sphinx:
