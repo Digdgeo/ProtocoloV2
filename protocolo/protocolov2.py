@@ -496,7 +496,7 @@ class Landsat:
             
     def normalize(self):
         
-         """
+        """
         Perform full band normalization using invariant areas and cloud masking.
 
         This method iteratively applies normalization to all spectral bands using a reference image
@@ -515,11 +515,11 @@ class Landsat:
             - A `coeficientes.txt` file with regression stats per band
             - MongoDB update with normalization metadata
         """
-        
+
         #path_rad = os.path.join(self.rad, self.escena)
                 
         bandas = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2']
-        
+
         #Vamos a pasar las bandas recortadas desde temp
         for i in os.listdir(self.rad_escena):
                     
