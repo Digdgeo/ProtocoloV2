@@ -1,6 +1,6 @@
 # 🤖 Protocolo V2
 
-[![Version](https://img.shields.io/badge/version-2.2.3-blue.svg)](tu-repo-url) [![Read the Docs](https://readthedocs.org/projects/protocolov2/badge/?version=latest)](https://protocolov2.readthedocs.io/)
+[![Version](https://img.shields.io/badge/version-2.2.3-blue.svg)](https://github.com/Digdgeo/ProtocoloV2) [![Read the Docs](https://readthedocs.org/projects/protocolov2/badge/?version=latest)](https://protocolov2.readthedocs.io/)
 
 
 Hi There! 👋
