@@ -11,7 +11,7 @@ build:
     - sphinx-apidoc -o docs/source/modules protocolo --force --module-first
     - ls -la docs/source/modules
     - cat docs/source/modules/modules.rst
-    - sphinx-build -b html docs/source docs/_build/html
+    - sphinx-build -b html docs/source $READTHEDOCS_OUTPUT/html
 
 sphinx:
   configuration: docs/source/conf.py
