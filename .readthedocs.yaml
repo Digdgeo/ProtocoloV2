@@ -5,10 +5,8 @@ build:
   tools:
     python: "3.10"
   commands:
-    # instala tu paquete (editable) para que autodoc lo importe
-    - pip install -e .
-    # genera automáticamente un rst por cada módulo en tu paquete
-    - sphinx-apidoc --force --separate --module-first \
+    - pip install -e .    
+    - python -m sphinx.ext.apidoc --force --separate --module-first \
         -o docs/source/protocolo protocolo
 
 sphinx:
