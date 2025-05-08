@@ -9,7 +9,7 @@ This project provides a satellite image protocol for downloading, normalizing, a
 
    installation
    usage
-   modules/modules
+   api_reference
 
 Indices and tables
 ==================
