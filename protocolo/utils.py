@@ -11,13 +11,18 @@ from email import encoders
 # Mails
 def enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto=None):
 
-    """Envía un correo electrónico con o sin archivo adjunto a los destinatarios especificados.
+    """
+    Sends an email to a list of recipients with optional attachment.
 
     Args:
-        destinatarios (list): Lista de correos electrónicos de los destinatarios.
-        asunto (str): Asunto del correo electrónico.
-        cuerpo (str): Cuerpo del mensaje del correo electrónico.
-        archivo_adjunto (str, optional): Ruta al archivo adjunto. Por defecto es None.
+        destinatarios (list): List of recipient email addresses.
+        asunto (str): Subject of the email.
+        cuerpo (str): Body of the email message (plain text).
+        archivo_adjunto (str, optional): Path to a file to be attached. Defaults to None.
+
+    Notes:
+        This function uses a Gmail SMTP server. The sender email and password must be correctly set.
+        Attachments are added as base64 encoded binary files.
     """
 
     # Configura los detalles del servidor SMTP de Gmail y las credenciales
@@ -62,14 +67,26 @@ def enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto=None):
 
 # Mails
 def enviar_notificacion_finalizada(info_escena, archivo_adjunto=None, exito=True):
+
     """
-    Envía una notificación final indicando éxito o fallo en el procesamiento.
+    Sends a summary notification email after a Landsat scene is processed.
 
     Args:
-        info_escena (dict): Información de la escena procesada, incluyendo nubes, superficies inundadas y lagunas.
-        archivo_adjunto (str): Ruta al archivo que se adjuntará en el correo (opcional).
-        exito (bool): Indica si el procesamiento fue exitoso (True) o si falló (False).
+        info_escena (dict): Dictionary with scene information including:
+            - 'escena': scene ID
+            - 'nubes_escena': cloud cover over the entire scene
+            - 'nubes_land': cloud cover over land
+            - 'nubes_Doñana': cloud cover over Doñana National Park
+            - 'flood_PN': dictionary of flooded hectares per area (optional)
+            - 'lagunas': dictionary with lagoon metrics (optional)
+        archivo_adjunto (str): Optional path to a quicklook image to attach.
+        exito (bool): Whether the processing was successful (True) or not (False).
+
+    Notes:
+        This function calculates the flood percentages for known marshland areas
+        and includes lagoon status if available. Sends the results to the predefined list of recipients.
     """
+
     destinatarios = [
         'digd.geografo@gmail.com', 'diegogarcia@ebd.csic.es', 
         'jbustamante@ebd.csic.es', 'rdiaz@ebd.csic.es', 
@@ -167,17 +184,22 @@ db_hidroperiodo = database.Hidroperiodo
 
 def prepare_hydrop(productos_dir, output_dir, ciclo_hidrologico, umbral_nubes):
 
-    """Prepara los datos del hidroperiodo copiando las máscaras de inundación válidas para un ciclo hidrológico.
+    """
+    Prepares flood masks for a hydrological cycle by copying valid masks from processed scenes.
 
-    La función filtra las escenas de acuerdo a su cobertura de nubes y dentro del rango del ciclo hidrológico,
-    y luego copia las máscaras de inundación (_flood.tif) al directorio de salida. Además, se almacena el ciclo
-    hidrológico y sus escenas en la base de datos MongoDB.
+    This function filters processed Landsat scenes according to cloud cover thresholds
+    and the defined hydrological cycle, then copies the flood mask files (ending in '_flood.tif')
+    from those valid scenes to a target directory. The list of valid scenes is also stored in 
+    the MongoDB collection 'Hidroperiodo' under a document for the specified cycle.
 
     Args:
-        productos_dir (str): Ruta al directorio que contiene las escenas procesadas.
-        output_dir (str): Ruta al directorio donde se copiarán las máscaras de inundación.
-        ciclo_hidrologico (str): Ciclo hidrológico en formato 'YYYY-YYYY'.
-        umbral_nubes (float): Porcentaje máximo de nubes permitido en las escenas de marismas.
+        productos_dir (str): Path to the directory containing processed Landsat scene folders.
+        output_dir (str): Path where the selected flood masks will be copied.
+        ciclo_hidrologico (str): Hydrological cycle in the format 'YYYY-YYYY'.
+        umbral_nubes (float): Maximum allowed cloud cover (%) over Doñana marshes to include the scene.
+    
+    Example:
+        prepare_hydrop('/mnt/productos/v02/pro', '/mnt/productos/v02/hyd', '2023-2024', 30)
     """
     
     # Obtener el año inicial y final del ciclo hidrológico
@@ -286,6 +308,14 @@ archivos_tiff = glob.glob(os.path.join(directorio_rasters, '**', 'hydroperiod_no
 
 # Función para obtener el valor medio de días inundados dentro de un polígono
 def obtener_media_raster(archivo_tiff, shapefile):
+
+    """
+    Calculates average flooded days per hydrological cycle for each subarea from hydroperiod rasters.
+
+    Returns:
+        dict: A nested dictionary where keys are subarea names and values are cycle-wise averages.
+    """
+
     with rasterio.open(archivo_tiff) as src:
         # Recortar el raster con la máscara del shapefile
         out_image, out_transform = mask(src, shapefile.geometry, crop=True)
@@ -299,6 +329,13 @@ def obtener_media_raster(archivo_tiff, shapefile):
 
 # Crear la nueva tabla en PostgreSQL si no existe
 def crear_tabla_postgresql():
+
+    """
+    Creates the PostgreSQL table to store average flooded days per subarea.
+
+    If the table already exists, it will not be created again.
+    """
+
     try:
         conn = psycopg2.connect(**db_params)
         cursor = conn.cursor()
@@ -318,6 +355,14 @@ def crear_tabla_postgresql():
 
 # Insertar los datos en la tabla de PostgreSQL
 def insertar_datos_postgresql(medias_recintos):
+
+    """
+    Inserts or updates average flooded day values into PostgreSQL for each subarea and cycle.
+
+    Args:
+        medias_recintos (dict): Dictionary of subarea names and their cycle-based average values.
+    """
+
     try:
         conn = psycopg2.connect(**db_params)
         cursor = conn.cursor()
@@ -340,6 +385,14 @@ def insertar_datos_postgresql(medias_recintos):
 
 # Obtener los valores medios para cada subrecinto y ciclo
 def obtener_valores_medios_recintos():
+
+    """
+    Calculates average flooded days per hydrological cycle for each subarea from hydroperiod rasters.
+
+    Returns:
+        dict: A nested dictionary where keys are subarea names and values are cycle-wise averages.
+    """
+
     medias_recintos = {}
 
     for _, subrecinto in zona_interes_recintos.iterrows():
@@ -365,6 +418,14 @@ def obtener_valores_medios_recintos():
 
 # Ejecutar todo el proceso
 def ejecutar_script():
+
+    """
+    Executes the full workflow for hydroperiod data:
+    - Creates the PostgreSQL table.
+    - Computes average flooded days for each subarea and cycle.
+    - Inserts data into the database.
+    """
+
     # Crear la tabla en PostgreSQL
     crear_tabla_postgresql()
     
@@ -396,6 +457,18 @@ db_params = {
 
 # Función para obtener los datos de días medios inundados desde PostgreSQL
 def obtener_datos_dias_inundados():
+
+    """
+        Retrieves average flood days per cycle and subarea from a PostgreSQL database.
+
+        This function queries the table `hidroperiodo_medias_recintos`, organizing results by subarea
+        and hydrological cycle, returning a dictionary with the time series for each subarea.
+
+        Returns:
+            dict: A dictionary where each key is a subarea name, and the value is another dictionary 
+                with 'ciclos' (cycles) and 'valores' (average flood days).
+        """
+
     try:
         conn = psycopg2.connect(**db_params)
         cursor = conn.cursor()
@@ -427,6 +500,15 @@ def obtener_datos_dias_inundados():
 
 # Función para graficar los días inundados por subrecinto
 def graficar_dias_inundados(datos_recintos):
+
+    """
+    Plots the average number of flooded days per hydrological cycle for each subarea.
+
+    Args:
+        datos_recintos (dict): Dictionary with subarea names as keys. Each value must include a list of cycles 
+                               and the corresponding average flood days (as returned by `obtener_datos_dias_inundados`).
+    """
+
     plt.figure(figsize=(10, 6))
 
     # Graficar los valores de días inundados para cada subrecinto
@@ -449,6 +531,15 @@ def graficar_dias_inundados(datos_recintos):
 
 # Ejecutar todo el proceso
 def ejecutar_script():
+
+    """
+    Executes the full workflow to retrieve and plot average flood days.
+
+    - Connects to PostgreSQL and ensures the target table exists.
+    - Retrieves average flood days for each subarea and hydrological cycle from the database.
+    - Plots the data using Matplotlib.
+    """
+
     # Obtener los datos de días medios inundados desde PostgreSQL
     datos_recintos = obtener_datos_dias_inundados()
     
@@ -476,6 +567,17 @@ import matplotlib.pyplot as plt
 
 
 def add_north_arrow(ax, position=(0.1, 0.1), size=15, label="N"):
+
+    """
+    Adds a north arrow to a Matplotlib axis.
+
+    Args:
+        ax (matplotlib.axes.Axes): The axis on which to draw the arrow.
+        position (tuple): The (x, y) coordinates in axes fraction (default: (0.1, 0.1)).
+        size (int): Font size of the "N" label (default: 15).
+        label (str): Label to display as the direction (default: "N").
+    """
+
     ax.annotate(
         label,
         xy=(position[0], position[1] + 0.1),
@@ -489,6 +591,18 @@ def add_north_arrow(ax, position=(0.1, 0.1), size=15, label="N"):
 
 
 def add_scale_bar(ax, transform, length=5000, location=(0.1, 0.05), height=0.005):
+
+    """
+    Adds a scale bar to a Matplotlib axis.
+
+    Args:
+        ax (matplotlib.axes.Axes): The axis on which to draw the scale bar.
+        transform (Affine): Affine transform of the raster to calculate real-world distance.
+        length (int): Length of the scale bar in meters (default: 5000).
+        location (tuple): Location of the lower-left corner of the scale bar in axes fraction (default: (0.1, 0.05)).
+        height (float): Height of the scale bar in axes fraction (default: 0.005).
+    """
+
     resolution_x = transform[0]
     relative_bar_length = length / (resolution_x * 1000)
     bar_x_start = location[0]
@@ -508,11 +622,18 @@ def add_scale_bar(ax, transform, length=5000, location=(0.1, 0.05), height=0.005
 
 
 def add_legend(ax, legend_type="rgb", line_width=2):
+
     """
-    Añade una leyenda al gráfico.
-    legend_type: Define el tipo de leyenda ('rgb' o 'flood').
-    line_width: Grosor de las líneas en la leyenda.
+    Adds a custom legend to the plot depending on the type of visualization.
+
+    Args:
+        ax (matplotlib.axes.Axes): The axis to which the legend will be added.
+        legend_type (str): Type of legend to display. Options are:
+            - "rgb": for RGB composite images (default).
+            - "flood": for flood masks showing inundated and dry areas.
+        line_width (int): Width of the boundary lines in the legend.
     """
+
     legend_elements = []
 
     # Leyenda para la composición RGB
@@ -533,9 +654,19 @@ def add_legend(ax, legend_type="rgb", line_width=2):
 
 
 def process_composition_rgb(swir1, nir, blue, shape, output_path):
+
     """
-    Procesa la composición RGB y guarda la visualización.
+    Generates an RGB composite using SWIR1, NIR, and Blue bands clipped to a given shape,
+    and saves the output as a high-resolution image with scale bar, north arrow, and legend.
+
+    Args:
+        swir1 (str): Path to the SWIR1 band raster file.
+        nir (str): Path to the NIR band raster file.
+        blue (str): Path to the Blue band raster file.
+        shape (str): Path to the shapefile used to crop the rasters.
+        output_path (str): Path where the output image (JPEG or PNG) will be saved.
     """
+
     with rasterio.open(swir1) as src_swir1, rasterio.open(nir) as src_nir, rasterio.open(blue) as src_blue:
         geometry = gpd.read_file(shape).geometry.values
         swir1, _ = mask(src_swir1, geometry, crop=True)
@@ -573,9 +704,17 @@ def process_composition_rgb(swir1, nir, blue, shape, output_path):
 
 
 def process_flood_mask(flood, shape, output_path):
+
     """
-    Procesa la máscara de inundación y guarda la visualización.
+    Processes a flood mask raster and generates a visual representation clipped to a given shape,
+    including a color-coded legend, north arrow, and scale bar.
+
+    Args:
+        flood (str): Path to the flood mask raster file (values: 0 = dry, 1 = flooded, 2 = no data).
+        shape (str): Path to the shapefile used to crop the raster and draw boundaries.
+        output_path (str): Path where the output image will be saved.
     """
+    
     with rasterio.open(flood) as src:
         geometry = gpd.read_file(shape).geometry.values
         mask_data, transform = mask(src, geometry, crop=True)
