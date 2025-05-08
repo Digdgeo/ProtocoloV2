@@ -1,11 +1,14 @@
 # 🤖 Protocolo V2
 
-![Version](https://img.shields.io/badge/version-2.2.3-blue.svg)
+[![Version](https://img.shields.io/badge/version-2.2.3-blue.svg)](tu-repo-url) [![Read the Docs](https://readthedocs.org/projects/protocolov2/badge/?version=latest)](https://protocolov2.readthedocs.io/en/latest/)
+
 
 Hi There! 👋
 
 Welcome to Protocolo V2 🤖 — the latest and most advanced iteration of our Landsat image normalization and processing workflow. Built around the concept of Pseudo Invariant Areas (PIAs), this project fully automates the generation of high-quality environmental products such as NDVI maps, inundation masks, turbidity estimates, and coastal lines enhanced with sea level data from tide gauges.
 Whether you are managing wetlands, monitoring coastal dynamics, or simply exploring large-scale Earth observation data, Protocolo V2 provides a robust, modular, and scalable solution ready for operational use.
+
+Here you have a glimpse of the workflow, but full documentation is available in Read the Docs [Protocolo V2 Docs](https://protocolov2.readthedocs.io/).
 
 ## What's Inside
 
@@ -54,12 +57,12 @@ All the magic is orchestrated and controlled by `download.py`, which automates t
 ## To Do List 📝
 
 - [x] Include script for executing hydroperiod (data preparation) (done! ✅)
-- [ ] Make the Docs (coming soon! 📖)
+- [x] Make the Docs 📖
 - [ ] Create a video tutorial (🎥)
 - [x] Check old and new water masks (six checked) (done! ✅)
 - [x] Add hydroperiod collection to database and enable filtering by clouds in preparation (done! ✅)
 - [x] **Important**: Create `lunch scripts` using `argparse` to run them from `crontab`
-- [ ] Make this a python package where reference image and PIAs are parameters of the class
+- [x] Make this a python package where reference image and PIAs are parameters of the class
 
 ## Contributing
 
