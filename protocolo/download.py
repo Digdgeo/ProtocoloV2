@@ -17,9 +17,17 @@ from .utils import enviar_correo, enviar_notificacion_finalizada
 # --- FUNCIÓN PARA LOGIN USGS CON LOGOUT AUTOMÁTICO ---
 def get_usgs_api_key(usuario, password):
 
+     """
+    Logs out any existing USGS session and logs in again to obtain a valid API key.
+
+    Args:
+        usuario (str): USGS EarthExplorer username.
+        password (str): USGS EarthExplorer password.
+
+    Returns:
+        str: Valid API key for authenticated USGS requests.
     """
-    Hace logout si hay sesión activa y luego login para obtener una API key válida.
-    """
+     
     try:
         api.logout()
     except Exception:
@@ -42,6 +50,25 @@ db = database.Landsat
 def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
                              process=True, max_cloud_cover=100,
                              output_dir='/path/to/folder/landsat/v02/ori/rar'):
+    
+    """
+    Main function to search, download, and process new Landsat Collection 2 Level-2 scenes.
+
+    Args:
+        latitude (float): Latitude of the area of interest.
+        longitude (float): Longitude of the area of interest.
+        days_back (int): Number of days to look back from today or `end_date`.
+        end_date (str or None): End date in ISO format (YYYY-MM-DD). Defaults to today.
+        process (bool): Whether to process the scene after downloading. Defaults to True.
+        max_cloud_cover (int): Maximum acceptable cloud cover. Currently unused.
+        output_dir (str): Directory to save the downloaded `.tar` files.
+
+    Notes:
+        - Only Tier 1 (`T1`) and `L2SP` products are considered valid.
+        - Already downloaded/processed scenes (in MongoDB) are skipped.
+        - After download, the scene is extracted and processed using the Landsat and Product classes.
+        - If successful, a notification email with a quicklook image is sent.
+    """
 
     hoy = datetime.date.today() if end_date is None else datetime.date.fromisoformat(end_date)
     inicio = hoy - datetime.timedelta(days=days_back)
