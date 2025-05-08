@@ -17,7 +17,7 @@ from .utils import enviar_correo, enviar_notificacion_finalizada
 # --- FUNCIÓN PARA LOGIN USGS CON LOGOUT AUTOMÁTICO ---
 def get_usgs_api_key(usuario, password):
 
-     """
+    """
     Logs out any existing USGS session and logs in again to obtain a valid API key.
 
     Args:
