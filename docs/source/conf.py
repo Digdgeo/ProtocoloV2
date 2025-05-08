@@ -33,6 +33,18 @@ source_suffix = {
 # (opcional, pero evita errores en versiones antiguas de Sphinx)
 master_doc = 'index'
 
+# Configuración de autodoc para definir el orden de los métodos (no alfabético)
+autodoc_default_options = {
+    'members': True,
+    'undoc-members': True,
+    'private-members': True,
+    'special-members': True,
+    'show-inheritance': True,
+    'exclude-members': '__weakref__',
+}
+
+autodoc_member_order = 'bysource'
+
 # Simula módulos que no están disponibles en RTD
 autodoc_mock_imports = [
     "osgeo",

@@ -22,7 +22,7 @@ class Coast:
         Args:
             pro_escena_path (str): Path to the processed scene directory.
             mtl_dict (dict, optional): Metadata dictionary from the Landsat MTL file containing scene information (default: None).
-            nombre_mask (str, optional): Filename of the flood mask to use. If None, the function searches for a '*_flood.tif' file within the scene directory.
+            nombre_mask (str, optional): Filename of the flood mask to use. If None, the function searches for a '_flood.tif' file within the scene directory.
             zona (str, optional): PortusCopia tide gauge zone code (default: 'Bonanza_Bon2_3333').
 
         Sets:
