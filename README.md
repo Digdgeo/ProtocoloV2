@@ -37,22 +37,58 @@ All the magic is orchestrated and controlled by `download.py`, which automates t
 
 ## Installation
 
-1. Clone this repository:
+#### Prerequisites
 
-    ```bash
-    git clone https://your-repo-url.git
-    cd your-repo-folder
-    ```
+- Python 3.10 or higher  
+- Git (only required if cloning the repository)  
+- MongoDB (if used in your configuration)  
 
-2. Install the required dependencies:
+1. Install Directly from GitHub (Recommended for Users)
 
-    ```bash
-    pip install -r requirements.txt
-    ```
+Install the package and its dependencies directly from the GitHub repository using `pip`:
 
-3. Configure your environment (e.g., MongoDB connection, paths to Landsat images).
+```bash
+pip install git+https://github.com/Digdgeo/ProtocoloV2.git
+```
+This command will install the package and all its dependencies in one go. This is the easiest way to get started with Protocolo V2.
 
-4. Run the processing scripts.
+2. Clone and Install (Recommended for Developers)
+
+Clone the repository and navigate to the project folder:
+
+```bash
+git clone https://github.com/Digdgeo/ProtocoloV2.git
+cd ProtocoloV2
+```
+
+Install in editable mode (for development):
+
+```bash
+pip install -e .
+```
+
+The `-e` flag links the package to your Python environment, allowing live code changes without reinstallation.
+
+3. Production Installation (Non-Editable)
+
+If you only need to use the package (no modifications), install it from the local cloned repo:
+
+```bash
+git clone https://github.com/Digdgeo/ProtocoloV2.git
+cd ProtocoloV2
+pip install .
+```
+
+
+#### Virtual Environment
+
+It is highly recommended to use a virtual environment to isolate dependencies:
+
+```bash
+python -m venv venv
+source venv/bin/activate  # Linux/macOS
+venv\Scripts\activate     # Windows
+```
 
 ## To Do List 📝
 
