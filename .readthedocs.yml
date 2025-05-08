@@ -19,10 +19,11 @@ build:
           sed -i "/^\.\. automodule::/a \ \ :members:\n\ \ :member-order: bysource" "$file"
         fi
       done
-    - sphinx-build -b html docs/source docs/_build/html
+    - sphinx-build -b html docs/source $READTHEDOCS_OUTPUT/html
 
 sphinx:
   configuration: docs/source/conf.py
+
 
 
 
