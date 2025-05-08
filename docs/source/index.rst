@@ -16,4 +16,4 @@ documentation for details.
 
    installation
    usage
-   modules/index
+   modules/protocolo
