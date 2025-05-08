@@ -16,5 +16,4 @@ documentation for details.
 
    installation
    usage
-   modules
-   
+   modules/index

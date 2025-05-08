@@ -1,18 +1,15 @@
 protocolo package
 =================
 
-Submodules
-----------
-
-Coast
-----------------------
-
-.. automodule:: protocolo.coast
+.. automodule:: protocolo
    :members:
    :undoc-members:
    :show-inheritance:
 
-Download
+Submodules
+----------
+
+protocolo.download module
 -------------------------
 
 .. automodule:: protocolo.download
@@ -20,23 +17,7 @@ Download
    :undoc-members:
    :show-inheritance:
 
-Hidroperiodo
------------------------------
-
-.. automodule:: protocolo.hidroperiodo
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Productos
---------------------------
-
-.. automodule:: protocolo.productos
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-Protocolo v2
+protocolo.protocolov2 module
 ----------------------------
 
 .. automodule:: protocolo.protocolov2
@@ -44,7 +25,23 @@ Protocolo v2
    :undoc-members:
    :show-inheritance:
 
-Utils
+protocolo.productos module
+--------------------------
+
+.. automodule:: protocolo.productos
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+protocolo.coast module
+----------------------
+
+.. automodule:: protocolo.coast
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+protocolo.utils module
 ----------------------
 
 .. automodule:: protocolo.utils
@@ -52,10 +49,10 @@ Utils
    :undoc-members:
    :show-inheritance:
 
-Module contents
----------------
+protocolo.hidroperiodo module
+-----------------------------
 
-.. automodule:: protocolo
+.. automodule:: protocolo.hidroperiodo
    :members:
    :undoc-members:
    :show-inheritance:
