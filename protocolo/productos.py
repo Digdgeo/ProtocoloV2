@@ -43,10 +43,59 @@ class Product(object):
         
     def __init__(self, ruta_nor):
         
-        """Inicializa un objeto Product con la ruta de la escena normalizada.
+        """
+        Initialize the Product class to generate flood-related products from a normalized Landsat scene.
 
-        Args:
-            ruta_nor (str): Ruta al directorio de la escena normalizada.
+        This method sets up all required paths and parameters based on the input normalized directory.
+        It identifies the Landsat sensor type (OLI, ETM+, TM), assigns file paths for spectral bands and
+        ancillary data, and prepares the environment for further processing. It also connects to MongoDB
+        to prepare product entries for the given scene.
+
+        Parameters
+        ----------
+        ruta_nor : str
+            Path to the directory containing the normalized Landsat scene.
+
+        Attributes
+        ----------
+        escena : str
+            Scene name extracted from `ruta_nor`.
+
+        raiz : str
+            Base directory containing the subfolders `ori`, `nor`, `pro`, `data`, etc.
+
+        ori, pro, nor, data, temp : str
+            Paths to the original data, products, normalized data, auxiliary data, and temporary files.
+
+        nor_escena, pro_escena, ori_escena : str
+            Paths to folders specific to the current scene.
+
+        recintos : str
+            Path to the shapefile with marsh zones.
+
+        lagunas : str
+            Path to the shapefile with lagoon polygons (EPSG:32629).
+
+        rbios : str
+            Path to the RBIOS shapefile (Donana Biologial Reserve).
+
+        out_OCG, out_OCG_VPS : str
+            Paths to the remote servers for final product delivery (OCG and VPS).
+
+        sensor : str
+            Identified sensor type (OLI, ETM+, or TM) based on the scene name.
+
+        cloud_mask_values : list of int
+            List of pixel values representing clouds or gaps depending on the sensor.
+
+        blue, green, red, nir, swir1, swir2 : str
+            Paths to the spectral band files of the scene.
+
+        fmask, hillshade : str
+            Paths to the cloud mask and hillshade files.
+
+        resultados_lagunas : dict
+            Dictionary that will store flood analysis results for individual lagoons.
         """
 
         self.escena = os.path.split(ruta_nor)[1]
@@ -154,7 +203,25 @@ class Product(object):
         
     def generate_composition_rgb(self):
         
-        """Genera la composición RGB en pro_escena (sobrescribe si existe)."""
+        """
+        Generates an RGB composite image from the normalized scene and saves it as a PNG.
+
+        This method uses the SWIR1, NIR, and BLUE bands of the scene to create a false-color RGB
+        composition. It overlays RBIOS (a shapefile of reference areas) and saves the result
+        as a PNG image in the scene's output product directory (`pro_escena`).
+
+        The resulting image can be used for visual inspection or reporting purposes.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            The composite image is saved to disk but no value is returned.
+        """
+
         output_path = os.path.join(self.pro_escena, f"{self.escena}_rgb.png")
         process_composition_rgb(
             self.swir1,
@@ -166,7 +233,24 @@ class Product(object):
 
     def generate_flood_mask(self):
         
-        """Genera la imagen de la máscara de inundación en pro_escena (sobrescribe si existe)."""
+        """
+        Generates a flood mask visualization as a PNG image using the computed flood raster.
+
+        This method creates a visual representation of the flood extent using the flood raster
+        (`self.flood_escena`) and overlays the RBIOS shapefile for reference. The output image 
+        is saved in the scene’s product folder (`pro_escena`) and can be used for quick inspection 
+        or reporting.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            The flood mask image is saved to disk but no value is returned.
+        """
+
         output_path = os.path.join(self.pro_escena, f"{self.escena}_flood.png")
         process_flood_mask(
             self.flood_escena,
@@ -177,9 +261,28 @@ class Product(object):
         
     def ndvi(self):
 
-        """Calcula el NDVI (Índice de Vegetación de Diferencia Normalizada) para la escena.
+        """
+        Computes the NDVI (Normalized Difference Vegetation Index) for the current scene.
 
-        El NDVI se guarda como un archivo GeoTIFF y se actualiza en la base de datos.
+        This method calculates NDVI using the NIR and RED bands of the normalized Landsat scene.
+        The result is stored as a GeoTIFF in the scene’s product directory (`pro_escena`) and the
+        product name is registered in the MongoDB database under the scene's document.
+
+        NDVI is a standard vegetation index used to monitor plant health and vegetation dynamics.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            The NDVI image is saved as a GeoTIFF and the database is updated, but no value is returned.
+
+        Notes
+        -----
+        - NoData values (-9999) are preserved in the output image.
+        - The image is written in float32 format.
         """
 
         self.ndvi_escena = os.path.join(self.pro_escena, self.escena + '_ndvi_.tif')
@@ -215,9 +318,27 @@ class Product(object):
 
     def ndwi(self):
 
-        """Calcula el NDWI (Índice de Agua de Diferencia Normalizada) para la escena.
+        """
+        Computes the NDWI (Normalized Difference Water Index) for the current scene.
 
-        El NDWI se guarda como un archivo GeoTIFF y se actualiza en la base de datos.
+        This method calculates NDWI using the GREEN and NIR bands of the normalized Landsat scene.
+        The resulting index highlights water bodies by enhancing the reflectance difference 
+        between water and vegetation or soil. The output is saved as a GeoTIFF in the product 
+        directory (`pro_escena`), and the product is recorded in the MongoDB database.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            The NDWI image is saved to disk and the product list is updated in the database.
+
+        Notes
+        -----
+        - Output pixels with NoData in the NIR band are also assigned a NoData value (-9999).
+        - The output raster is written in float32 format.
         """
 
         self.ndwi_escena = os.path.join(self.pro_escena, self.escena + '_ndwi.tif')
@@ -254,9 +375,27 @@ class Product(object):
 
     def mndwi(self):
 
-        """Calcula el MNDWI (Índice Modificado de Agua de Diferencia Normalizada) para la escena.
+        """
+        Computes the MNDWI (Modified Normalized Difference Water Index) for the current scene.
 
-        El MNDWI se guarda como un archivo GeoTIFF y se actualiza en la base de datos.
+        This method calculates MNDWI using the GREEN and SWIR1 bands from the normalized Landsat scene.
+        MNDWI is particularly effective at detecting open water in environments with built-up or 
+        vegetated areas. The output is saved as a GeoTIFF in the scene’s product folder (`pro_escena`), 
+        and the product entry is added to MongoDB.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            The MNDWI raster is saved to disk and the product name is added to the MongoDB document.
+
+        Notes
+        -----
+        - NoData pixels in the SWIR1 band are propagated to the output image.
+        - The result is saved in float32 format with -9999 as NoData value.
         """
 
         self.mndwi_escena = os.path.join(self.pro_escena, self.escena + '_mndwi.tif')
@@ -293,10 +432,36 @@ class Product(object):
 
     def flood(self):
         
-        """Genera la máscara de inundación utilizando diversos criterios (e.g., NDWI, MNDWI, Slope).
+        """
+        Generates a flood mask based on spectral indices, terrain data, and custom rules.
 
-        La máscara de inundación se guarda como un archivo GeoTIFF y se actualiza en la base de datos.
-        Aplica reglas para determinar qué áreas son consideradas inundadas.
+        This method creates a flood classification raster (`flood_escena`) by applying a set of 
+        logical rules that combine spectral thresholds (e.g., NDWI, MNDWI, NDVI), terrain features 
+        (elevation, slope, hillshade), and cloud/shadow masks (FMask) to detect inundated areas.
+
+        Pixels are classified into three categories:
+        - 0: Not flooded or invalid
+        - 1: Flooded (valid water)
+        - 2: Invalid due to clouds or shadows
+
+        The output raster is saved as a GeoTIFF in the scene’s product folder and registered 
+        in MongoDB under the "Flood" product tag.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            The flood mask is saved to disk and registered in the database.
+
+        Notes
+        -----
+        - Pixels are filtered using multiple criteria including slope > 8%, low hillshade, high NDVI, 
+        and dense vegetation coverage.
+        - A voting mechanism among NDWI, MNDWI, and FMask ensures robust detection in ambiguous areas.
+        - NoData pixels are set to -9999 and handled explicitly.
         """
     
         self.flood_escena = os.path.join(self.pro_escena, self.escena + '_flood.tif')
@@ -431,10 +596,31 @@ class Product(object):
         
     def turbidity(self):
 
-        """Calcula la turbidez del agua en la escena usando bandas espectrales.
+        """
+        Estimates water turbidity using spectral band combinations and empirical models.
 
-        El cálculo de la turbidez se guarda como un archivo GeoTIFF y se actualiza en la base de datos.
-        Usa diferentes modelos dependiendo del tipo de cuerpo de agua (río o marisma).
+        This method calculates water turbidity levels across the flooded area using distinct 
+        empirical models for rivers and marshes. The classification into river or marsh is 
+        guided by a reference water mask. Spectral reflectance values from the BLUE, GREEN, RED, 
+        NIR, and SWIR1 bands are used in non-linear models derived from in-situ calibration.
+
+        The result is stored as a float32 GeoTIFF (`turbidity_escena`) and the product is 
+        recorded in MongoDB.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            The turbidity raster is saved to disk and the MongoDB product list is updated.
+
+        Notes
+        -----
+        - Different models are applied depending on whether the flooded pixel belongs to a marsh or a river.
+        - Pixels with invalid data are assigned a NoData value of -9999.
+        - The method uses reclassification and clipping to avoid unrealistic turbidity values.
         """
         
         waterMask = os.path.join(self.water_masks, 'water_mask_turb.tif')
@@ -515,10 +701,31 @@ class Product(object):
 
     def depth(self):
 
-        """Calcula la profundidad del agua en las áreas inundadas de la escena.
+        """
+        Estimates water depth in flooded areas using spectral band ratios and empirical modeling.
 
-        La profundidad se calcula utilizando ratios entre bandas espectrales y modelos empíricos.
-        El resultado se guarda como un archivo GeoTIFF y se actualiza en la base de datos.
+        This method calculates water depth for the flooded pixels using a multi-variable 
+        exponential model. The model combines reflectance values and ratios derived from the
+        BLUE, GREEN, NIR, and SWIR1 bands, along with a reference NIR image from a dry-date
+        baseline (September 30, 2023). The model is empirically derived and calibrated for marshes.
+
+        The output is saved as a float32 GeoTIFF (`depth_escena`) and registered in MongoDB.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            The depth raster is saved to disk and the scene’s product list is updated in MongoDB.
+
+        Notes
+        -----
+        - Depth is only computed for pixels that are flooded in the current scene and not flooded 
+        in the September reference image.
+        - NoData values are explicitly handled and set to -9999.
+        - The model output is capped to a maximum value (e.g., 50) to avoid unrealistic depth estimates.
         """
         
         # Abrimos las bandas necesarias para correr el algoritmo
@@ -615,10 +822,29 @@ class Product(object):
     def get_flood_surface(self):
 
         """
-        Calcula la superficie inundada por zonas de marisma y actualiza MongoDB.
+        Calculates flooded surface area within predefined marsh zones and updates MongoDB and CSV output.
 
-        Utiliza un shapefile de recintos de marisma y una máscara de inundación para calcular la superficie 
-        inundada en hectáreas para cada zona. Los resultados se guardan en un archivo CSV y en la base de datos.
+        This method intersects the flood mask raster with a shapefile of marsh polygons 
+        to compute the flooded area (in hectares) for each polygon. It also calculates 
+        the percentage of flooding relative to each polygon's total area.
+
+        Results are saved in a CSV file (`superficie_inundada.csv`) in the product folder,
+        and the flood statistics are stored under `Flood_Data.Marismas` in MongoDB.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            Results are saved to disk and MongoDB; no value is returned.
+
+        Notes
+        -----
+        - A summary row with totals is appended to the CSV.
+        - Polygons with invalid or missing geometries are skipped and reported.
+        - Units for all areas are in hectares.
         """
         
         try:
@@ -706,7 +932,30 @@ class Product(object):
     def calcular_inundacion_lagunas(self):
         
         """
-        Calcula la superficie inundada para las lagunas, actualiza MongoDB y guarda resultados en CSV.
+        Calculates flooded area in lagoon polygons and updates results in MongoDB and CSV files.
+
+        This method computes the flooded surface for each lagoon polygon by overlaying the flood mask.
+        It also calculates total flooded area, the number of lagoons with water, and the percentage 
+        of flooding relative to the theoretical maximum area.
+
+        The results are stored in the `Flood_Data.Lagunas` field in MongoDB and exported to two CSV files:
+        - `resumen_lagunas_carola.csv`: summary statistics
+        - `lagunas_carola.csv`: flood values per lagoon polygon
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            Results are stored in MongoDB and written to disk as CSV files.
+
+        Notes
+        -----
+        - Area units are in hectares.
+        - Lagunas with no flooded pixels are still included in the output.
+        - Geometry is removed from the per-lagoon CSV for compact output.
         """
     
         lagunas = gpd.read_file(self.lagunas)
@@ -784,11 +1033,28 @@ class Product(object):
     def calcular_inundacion_lagunas_principales(self):
         
         """
-        Calcula la inundación para lagunas principales (con toponimo no nulo), 
-        actualiza MongoDB y devuelve el lagunas_dict para guardar en CSV.
-        
-        Returns:
-            list: Lista de diccionarios con información por laguna principal.
+        Calculates flood statistics for main lagoons (those with a defined toponym) and updates MongoDB.
+
+        This method filters lagoon polygons to retain only those with a non-null `TOPONIMO` field.
+        For each of these main lagoons, it computes the flooded area and the percentage of flooding
+        with respect to its total surface. Results are saved to MongoDB and returned as a list 
+        of dictionaries.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        list of dict
+            A list containing flood statistics per lagoon, with keys:
+            'TOPONIMO', 'area_total', 'area_inundada', and 'porcentaje_inundacion'.
+
+        Notes
+        -----
+        - Areas are reported in hectares.
+        - Only lagoons with defined names (`TOPONIMO`) are included.
+        - Results are stored in MongoDB under `Flood_Data.LagunasPrincipales`.
         """
         
         try:
@@ -848,11 +1114,31 @@ class Product(object):
     def export_MongoDB(self, ruta_destino="/mnt/datos_last/mongo_data", formato="json"):
         
         """
-        Exporta la base de datos MongoDB a un archivo JSON o CSV y lo guarda en la ruta especificada.
-        
-        Args:
-            ruta_destino (str): Ruta donde se guardarán los archivos exportados.
-            formato (str): Formato de exportación, puede ser 'json' o 'csv'.
+        Exports all MongoDB collections to files in either JSON or CSV format.
+
+        This method retrieves all documents from each collection in the MongoDB database and 
+        saves them to the specified destination folder. The export format can be either 
+        `.json` or `.csv`, depending on the value of the `formato` parameter.
+
+        Parameters
+        ----------
+        ruta_destino : str, optional
+            Path to the destination folder where the exported files will be saved.
+            Default is "/mnt/datos_last/mongo_data".
+
+        formato : str, optional
+            Export format: either "json" or "csv". Default is "json".
+
+        Returns
+        -------
+        None
+            The exported files are written to disk; no value is returned.
+
+        Notes
+        -----
+        - JSON export preserves document structure with indentation.
+        - CSV export flattens documents into tabular format using pandas.
+        - Unsupported formats will raise a warning and skip the export.
         """
         
         try:
@@ -883,11 +1169,29 @@ class Product(object):
     def guardar_lagunas_principales_en_csv(self, lagunas_dict):
         
         """
-        Guarda los datos de las lagunas principales (con toponimo) en un archivo CSV.
-        
-        Args:
-            lagunas_dict (list): Lista de diccionarios con datos de lagunas principales.
+        Saves the main lagoon flood statistics to a CSV file.
+
+        This method takes a list of dictionaries containing flood metrics for named lagoons 
+        (typically returned by `calcular_inundacion_lagunas_principales`) and writes them 
+        to a CSV file in the product directory (`pro_escena`).
+
+        Parameters
+        ----------
+        lagunas_dict : list of dict
+            List of dictionaries containing lagoon data with the following keys:
+            'TOPONIMO', 'area_total', 'area_inundada', 'porcentaje_inundacion'.
+
+        Returns
+        -------
+        None
+            The output is written to disk; no value is returned.
+
+        Notes
+        -----
+        - Each entry in the CSV includes the current scene ID (`_id`) for traceability.
+        - The output file is named `lagunas_principales.csv`.
         """
+
         for laguna in lagunas_dict:
             laguna["_id"] = self.escena
             laguna["usgs_id"] = None  # Puedes adaptarlo si lo tienes
@@ -902,7 +1206,30 @@ class Product(object):
     def guardar_resumen_lagunas_en_csv(self):
         
         """
-        Guarda el resumen de las lagunas de la escena actual en un archivo CSV.
+        Saves a summary of lagoon flooding statistics for the current scene to a CSV file.
+
+        This method compiles a summary of flooding conditions in the lagoon dataset, including:
+        - total number of lagoons
+        - number of lagoons with water
+        - total flooded area
+        - overall flood percentage
+        - percentage of lagoons affected
+
+        The summary is written to a CSV file in the scene’s product directory (`pro_escena`).
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            The summary is saved to disk; no value is returned.
+
+        Notes
+        -----
+        - Data is extracted from the `self.resultados_lagunas` attribute.
+        - The output CSV is named `resumen_lagunas.csv`.
         """
         
         try:
@@ -942,9 +1269,28 @@ class Product(object):
     def calcular_inundacion_censo(self):
         
         """
-        Calcula la superficie inundada para los polígonos del censo aéreo L3,
-        guarda los resultados en un CSV y actualiza la base de datos MongoDB.
-        """
+        Calculates flood extent for aerial census polygons and stores the results in CSV and MongoDB.
+
+        This method overlays the flood mask with polygons from an aerial census shapefile (level 3) 
+        and computes the flooded area for each polygon in hectares. Results are saved to a CSV file 
+        in the product directory (`pro_escena`) and also stored in the MongoDB document 
+        under `Flood_Data.CensoAereo`.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            The flood results are written to disk and inserted into MongoDB.
+
+        Notes
+        -----
+        - Input shapefile must be named `censo_aereo_l3.shp` and located in the `data` folder.
+        - Flooded area is calculated as the sum of pixels with value 1, multiplied by pixel area.
+        - The output CSV includes the name and description of each polygon and its flooded area.
+    """
     
         try:
             # Leer el shapefile del censo aéreo
@@ -996,7 +1342,28 @@ class Product(object):
 
     def movidas_de_servidores(self):
         
-        """Mueve los productos finales a una subcarpeta y los copia a los servidores remotos usando scp sin contraseña."""
+        """
+        Organizes and transfers final product files to remote servers via SCP.
+
+        This method creates a subfolder named after the scene inside the product directory,
+        moves all PNG and CSV outputs into it, and transfers the folder to two remote 
+        servers defined in the SSH config file (e.g., `vps84` and `vps83`) using SCP.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            Files are moved locally and copied to the remote servers; no value is returned.
+
+        Notes
+        -----
+        - CSV files are renamed to include the scene ID as a prefix for clarity.
+        - SCP is used with passwordless authentication (configured in `.ssh/config`).
+        - Remote paths are hardcoded to standard shared directories for product ingestion.
+        """
     
         # Crear carpeta final con el nombre de la escena dentro de self.pro_escena
         carpeta_final = os.path.join(self.pro_escena, self.escena)
@@ -1046,10 +1413,30 @@ class Product(object):
     def run(self):
         
         """
-        Ejecuta el flujo completo de generación de productos.
-    
-        Calcula NDVI, NDWI, MNDWI, máscara de inundación, turbidez, profundidad,
-        y la superficie inundada, actualizando productos en MongoDB y guardando resultados como CSV.
+        Executes the full processing pipeline for a normalized Landsat scene.
+
+        This method orchestrates the generation of all core products, including spectral indices, 
+        flood detection, water turbidity, and depth estimation. It also computes zonal statistics 
+        for marshes, lagoons, and census polygons, stores results in MongoDB, exports CSVs, 
+        and generates visual summaries.
+
+        At the end of the process, products are moved to a final folder and transferred 
+        to remote servers. The coastal analysis module (`Coast`) is also launched.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+            All results are stored on disk and in MongoDB; no value is returned.
+
+        Notes
+        -----
+        - The method assumes that the input scene has been pre-normalized.
+        - Each step includes exception handling and logging.
+        - Products include NDVI, NDWI, MNDWI, flood mask, turbidity, depth, zonal summaries, and plots.
         """
         
         try:
