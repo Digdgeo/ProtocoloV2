@@ -30,19 +30,19 @@ class Landsat:
     
     
     """
-    Class for handling USGS Landsat Collection 2 Level-2 Surface Reflectance products.
+    Handles USGS Landsat Collection 2 Level-2 Surface Reflectance products.
 
-    This class provides methods to preprocess Landsat images, including cloud masking,
-    reflectance and temperature calibration, spatial projection, and normalization using
-    pseudo-invariant features.
+    This class provides tools for preprocessing Landsat images, including cloud masking,
+    radiometric calibration, thermal correction, reprojection, and normalization using
+    pseudo-invariant features (PIFs). It also organizes the output into a structured
+    folder hierarchy and inserts metadata into MongoDB.
 
-    Attributes:
-        ruta_escena (str): Path to the original scene folder.
-        escena (str): Scene folder name.
-        base (str): Root directory containing subfolders (ori, rad, geo, nor, pro).
-        ...
-        last_name (str): Unique scene ID used for naming outputs and MongoDB keys.
-        newesc (dict): Document to be inserted in the MongoDB collection.
+    The class is designed to work with Collection 2 products from Landsat 5, 7, 8, and 9.
+
+    See Also
+    --------
+    __init__ : Initializes scene attributes, reads MTL metadata, creates output folders, 
+               and prepares MongoDB insertion document.
     """
     
     def __init__(self, ruta_escena, inicializar=True):
@@ -50,12 +50,19 @@ class Landsat:
         """
         Initialize a Landsat object from a given scene path.
 
-        It parses the metadata, prepares output folders, downloads the quicklook,
-        and inserts a new document into the MongoDB collection.
+        This method reads the scene metadata, sets up internal attributes, prepares
+        the output directory structure, downloads the quicklook image, and creates
+        a new MongoDB document for the scene. If `inicializar` is set to False,
+        initialization steps are skipped (useful for inspection or documentation purposes).
 
-        Args:
-            ruta_escena (str): Path to the Landsat scene directory.
-            inicializar (bool): If False, skip the full initialization (useful for documentation or static inspection).
+        Parameters
+        ----------
+        ruta_escena : str
+            Path to the Landsat scene directory containing the original downloaded files.
+
+        inicializar : bool, optional
+            Whether to perform full initialization. If False, only sets basic attributes 
+            without reading metadata or connecting to MongoDB (default is True).
         """
         
         self.ruta_escena = ruta_escena
@@ -171,14 +178,16 @@ class Landsat:
     def get_hillshade(self):
 
         """
-        Generate a hillshade raster from a fixed DTM and solar metadata.
+        Generate a hillshade raster using a fixed DTM and scene solar metadata.
 
-        This method uses the solar azimuth and elevation from the scene's MTL file
-        to generate a hillshade image based on a pre-defined DTM file (specific for path/row 202/034).
-        The output is stored in the `nor` folder of the scene.
+        This method uses the solar azimuth and elevation values from the scene's MTL file
+        to compute a hillshade raster from a pre-defined Digital Terrain Model (DTM)
+        specific to path/row 202/034. The result is saved in the `nor` folder of the scene.
 
-        Raises:
-            RuntimeError: If the `gdaldem hillshade` command fails to execute properly.
+        Raises
+        ------
+        RuntimeError
+            If the `gdaldem hillshade` command fails during execution.
         """
 
         dtm = os.path.join(self.data, 'dtm_202_34.tif') #Por defecto esta en 29 y solo para la 202_34
@@ -209,14 +218,18 @@ class Landsat:
         """
         Calculate the cloud coverage percentage over Doñana National Park.
 
-        This method crops the QA_PIXEL cloud mask using a shapefile of the park boundaries 
-        and computes the percentage of valid pixels (clear land or clear water) over 
-        the total area of the park (predefined in square meters). 
-        The result is stored in MongoDB under the `cloud_PN` field.
+        This method uses the QA_PIXEL cloud mask and a shapefile representing the 
+        boundaries of Doñana National Park to compute the percentage of valid pixels 
+        (i.e., clear land or clear water) within the park. The result is stored 
+        in the MongoDB document under the field `cloud_PN`.
 
-        Raises:
-            RuntimeError: If the `gdalwarp` command fails.
-            Exception: If there is an issue updating MongoDB.
+        Raises
+        ------
+        RuntimeError
+            If the `gdalwarp` command fails during execution.
+
+        Exception
+            If an error occurs while updating the MongoDB document.
         """
 
         shape = os.path.join(self.data, 'Limites_PN_Donana.shp')
@@ -280,12 +293,14 @@ class Landsat:
         """
         Delete temporary cloud mask files generated during processing.
 
-        This method removes all files inside the `masks/` folder within the Landsat scene
-        directory and then deletes the folder itself. It is typically called after
-        cloud coverage has been analyzed and masks are no longer needed.
+        This method removes all files inside the `masks/` subfolder of the Landsat scene 
+        directory and then deletes the folder itself. It is typically called after 
+        cloud coverage has been calculated and the intermediate mask files are no longer needed.
 
-        Raises:
-            OSError: If any file or the `masks/` folder cannot be deleted.
+        Raises
+        ------
+        OSError
+            If any file or the `masks/` folder cannot be deleted.
         """
 
         path_masks = os.path.join(self.ruta_escena, 'masks')
@@ -303,15 +318,19 @@ class Landsat:
         """
         Apply gap-filling to Landsat 7 bands acquired after June 2003.
 
-        This method checks if the scene comes from Landsat 7 and was acquired after
-        the Scan Line Corrector (SLC) failure (June 2003). If so, it fills in the 
-        missing data (gaps) using GDAL's `FillNodata` algorithm for each valid band.
+        This method detects if the input scene corresponds to Landsat 7 after the 
+        Scan Line Corrector (SLC) failure (June 2003). If so, it uses GDAL's 
+        `FillNodata` algorithm to interpolate missing pixels (gaps) in each 
+        reflectance band.
 
-        Only applies to reflectance bands: blue, green, red, nir, swir1, swir2.
+        The method only processes the following bands: blue, green, red, nir, swir1, and swir2.
 
-        Raises:
-            RuntimeError: If a band cannot be opened or processed.
+        Raises
+        ------
+        RuntimeError
+            If a band cannot be opened or processed during the gap-filling operation.
         """
+
         # Verificar si es Landsat 7 y la fecha de adquisición es posterior a junio de 2003
         if self.sat == "L7" and datetime.strptime(self.escena_date, "%Y%m%d") > datetime(2003, 6, 1):
             print("Aplicando gapfill a las bandas de Landsat 7 posteriores a junio de 2003.")
@@ -336,17 +355,18 @@ class Landsat:
         """
         Apply projection, resolution, and geographic extent to all valid bands.
 
-        This method uses `gdalwarp` to reproject the input bands to a common
-        spatial reference, apply a standard 30m resolution, and clip them to a
-        predefined geographic extent using a WRS-2 shapefile. It handles
-        differences between OLI (Landsat 8/9) and TM/ETM+ (Landsat 4/5/7)
-        band naming conventions.
+        This method uses `gdalwarp` to reproject the reflectance and thermal bands 
+        to a common spatial reference system, apply a standard 30-meter resolution, 
+        and clip them to a predefined extent defined by a WRS-2 shapefile. It accounts 
+        for differences in band naming between OLI (Landsat 8/9) and TM/ETM+ (Landsat 4/5/7) sensors.
 
-        The resulting files are stored in the `geo` directory.
+        The output files are saved in the `geo` directory of the scene.
 
-        Raises:
-            RuntimeError: If a band cannot be processed.
-        """       
+        Raises
+        ------
+        RuntimeError
+            If any band fails to process during the reprojection or clipping steps.
+        """     
         
         olibands = {'B1': 'cblue_b1', 'B2': 'blue_b2', 'B3': 'green_b3', 'B4': 'red_b4', 'B5': 'nir_b5', 'B6': 'swir1_b6',
                    'B7': 'swir2_b7', 'PIXEL': 'fmask', 'B10': 'lst'}
@@ -408,15 +428,20 @@ class Landsat:
         """
         Apply surface reflectance and land surface temperature coefficients to image bands.
 
-        This method adjusts the radiometrically corrected bands using standard coefficients
-        for surface reflectance (SR) and land surface temperature (LST) to make the pixel
-        values physically meaningful.
+        This method scales the radiometrically corrected bands using standard coefficients
+        to produce physically meaningful values:
 
-        - Reflectance bands (e.g., blue, green, red, NIR, SWIR1, SWIR2) are scaled to [0, 1].
-        - The LST band is converted from digital numbers to degrees Celsius.
-        - The fmask band is copied directly without modification.
+        - Reflectance bands (blue, green, red, NIR, SWIR1, SWIR2) are rescaled to the [0, 1] range.
+        - The thermal band (LST) is converted from digital numbers to degrees Celsius.
+        - The fmask (cloud mask) band is copied directly without modification.
 
-        Output bands are stored in the `rad` (radiometrically processed) and `pro` (products) folders.
+        The processed bands are saved in the `rad` (radiometric correction) and 
+        `pro` (final products) directories.
+
+        Raises
+        ------
+        RuntimeError
+            If any band cannot be processed or written to disk.
         """
     
         #path_geo = os.path.join(self.geo, self.escena)
@@ -499,21 +524,27 @@ class Landsat:
         """
         Perform full band normalization using invariant areas and cloud masking.
 
-        This method iteratively applies normalization to all spectral bands using a reference image
-        and pre-defined masks (e.g. Equilibrada / NoEquilibrada). It attempts up to six iterations per band,
-        adjusting the residual threshold to improve fit.
+        This method normalizes all spectral bands by comparing them with a reference image 
+        over predefined pseudo-invariant features (PIFs). It applies cloud masking and iteratively 
+        adjusts regression parameters to meet quality thresholds.
 
         For each band:
-        - It calls `nor1()` to compute regression parameters.
-        - If the parameters meet quality criteria (R² > 0.85 and ≥10 pixels per invariant area),
-        it proceeds to apply the normalization with `nor2l8()`.
-        - The normalization parameters are saved in a `.txt` file and inserted into MongoDB.
+        - Calls `nor1()` to compute regression parameters.
+        - If parameters satisfy quality criteria (R² > 0.85 and at least 10 valid pixels 
+        per invariant area), normalization is applied using `nor2l8()`.
+        - Normalization parameters and diagnostics are saved and stored in MongoDB.
 
-        Output:
-            - Normalized images in `nor_escena` with `_grn2_` suffix
-            - Diagnostic plots and logs
-            - A `coeficientes.txt` file with regression stats per band
-            - MongoDB update with normalization metadata
+        Outputs
+        -------
+        - Normalized bands saved in `nor_escena` with `_grn2_` suffix.
+        - Diagnostic plots and normalization logs.
+        - A `coeficientes.txt` file with per-band regression statistics.
+        - Normalization metadata inserted into MongoDB.
+
+        Raises
+        ------
+        RuntimeError
+            If normalization fails for one or more bands.
         """
 
         #path_rad = os.path.join(self.rad, self.escena)
@@ -586,29 +617,37 @@ class Landsat:
     def nor1(self, banda, mascara, coef = 1):
         
         """
-        Perform linear normalization on a single band using pseudo-invariant areas.
+        Perform linear normalization on a single band using pseudo-invariant areas (PIFs).
 
-        This method compares the target band with its homologous band from a reference
-        image (from August 2022), only using pixels that are cloud-free and fall within
-        specific regions of interest defined in the mask (e.g., urban, forest, water).
+        This method compares a target image band with its homologous band from a fixed 
+        reference scene (e.g., August 2022) using only pixels that are cloud-free and 
+        fall within predefined regions of interest defined in the PIFs mask.
 
-        It applies a first linear regression, calculates residuals, and filters out outliers
-        based on the standard deviation multiplied by a given coefficient (`coef`).
-        A second regression is then performed on the filtered data.
+        It performs a first linear regression, computes residuals, and removes outliers
+        based on a standard deviation threshold multiplied by `coef`. A second regression 
+        is then fitted to the filtered data.
 
-        If the regression meets quality criteria (R > 0.85 and ≥10 valid pixels per region),
-        the slope and intercept are stored and the normalized image is saved via `nor2l8`.
+        If the second regression meets quality criteria (R > 0.85 and at least 10 valid pixels 
+        per class), the slope and intercept are stored, and the normalized image is 
+        subsequently generated via `nor2l8()`.
 
-        Args:
-            banda (str): Path to the input image band to be normalized.
-            mascara (str): Path to the PIFs mask (e.g., Equilibrada.tif or NoEquilibrada.tif).
-            coef (int, optional): Multiplier for the residual standard deviation used
-                                to exclude outliers in the second regression (default: 1).
+        Parameters
+        ----------
+        banda : str
+            Path to the input image band to be normalized.
 
-        Results:
-            - Stores regression coefficients and pixel counts per class in `self.parametrosnor`
-            - Calls `nor2l8()` to generate normalized raster if criteria are met
-            - Generates and saves diagnostic plots comparing both regressions
+        mascara : str
+            Path to the PIFs mask image (e.g., `Equilibrada.tif`, `NoEquilibrada.tif`).
+
+        coef : int, optional
+            Multiplier for the standard deviation of residuals used to filter outliers 
+            in the second regression. Default is 1.
+
+        Results
+        -------
+        - Regression coefficients and pixel counts are saved to `self.parametrosnor`.
+        - Normalized image is generated via `nor2l8()` if criteria are met.
+        - Diagnostic plots are produced comparing both regressions.
         """
 
         print('comenzando nor1')
@@ -786,22 +825,29 @@ class Landsat:
         """
         Apply a linear normalization equation to a Landsat band and save the output raster.
 
-        This method uses the slope and intercept from a prior linear regression
-        to normalize the input band. It replaces out-of-range values and preserves NoData values.
+        This method applies a linear transformation to a reflectance-corrected Landsat band
+        using a given slope and intercept from a regression model. It ensures that pixel 
+        values remain within the valid range and that NoData values are preserved.
 
-        The output raster is saved with `_grn2_` in the filename to indicate it is a
-        normalized version of the original reflectance-corrected image.
+        The normalized raster is saved with `_grn2_` in the filename and stored in the 
+        corresponding `nor_escena` folder.
 
-        Args:
-            banda (str): Path to the input raster file to be normalized.
-            slope (float): Regression slope used for normalization.
-            intercept (float): Regression intercept used for normalization.
+        Parameters
+        ----------
+        banda : str
+            Path to the input raster file to be normalized.
 
-        Effects:
-            - Values < 0 are clipped to 0
-            - Values ≥ 1 are clipped to 1
-            - NoData values (-9999) are preserved
-            - The result is saved to the corresponding `nor_escena` folder
+        slope : float
+            Regression slope to apply in the normalization equation.
+
+        intercept : float
+            Regression intercept to apply in the normalization equation.
+
+        Notes
+        -----
+        - Output values below 0 are clipped to 0.
+        - Output values equal to or above 1 are clipped to 1.
+        - NoData values (-9999) in the input are preserved in the output.
         """
                 
         print('estamos en nor2!')
@@ -855,23 +901,34 @@ class Landsat:
         """
         Execute the complete Landsat scene processing workflow.
 
-        This method orchestrates the full processing pipeline for a Landsat Level-2 scene,
-        from auxiliary product generation to final normalization. It assumes that the
-        required files (bands, metadata, masks) are present and correctly structured.
+        This method orchestrates the full processing pipeline for a USGS Landsat 
+        Collection 2 Level-2 scene. It assumes all required input files (bands, metadata, 
+        masks, etc.) are present and correctly structured in the scene directory.
 
-        Steps:
+        The steps performed are:
+
         1. Generate a hillshade image using DTM and solar angles.
-        2. Compute cloud coverage within the boundaries of the National Park.
-        3. Remove temporary masks created during cloud analysis.
-        4. Apply gap-filling (only if the scene is from Landsat 7 after June 2003).
-        5. Reproject and clip bands to the region of interest.
+        2. Compute cloud coverage within Doñana National Park.
+        3. Delete temporary cloud mask files.
+        4. Apply gap-filling (only for Landsat 7 scenes post-SLC failure).
+        5. Reproject and clip spectral bands to a standard extent.
         6. Apply surface reflectance and temperature coefficients.
-        7. Perform normalization based on invariant areas and a reference image.
+        7. Normalize all bands using pseudo-invariant features (PIFs) and a reference image.
 
-        The process updates MongoDB with key metadata and creates all intermediate and final products
-        inside the corresponding `pro`, `geo`, `rad` and `nor` directories.
+        Outputs are stored in the appropriate subdirectories:
+        `pro` (products), `geo` (georeferenced), `rad` (radiometrically corrected),
+        and `nor` (normalized).
 
-        Prints a completion message and total execution time.
+        The method also updates MongoDB with relevant metadata and processing results.
+
+        Prints
+        ------
+        Completion message and total execution time.
+
+        Raises
+        ------
+        RuntimeError
+            If any critical step in the pipeline fails.
         """
         
         t0 = time.time()

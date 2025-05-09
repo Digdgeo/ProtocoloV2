@@ -38,7 +38,18 @@ db = database.Landsat
 class Product(object):
     
     
-    '''Esta clase genera los productos de inundacion, turbidez del agua y ndvi de las escenas normalizadas'''
+    """
+    Generates flood, water turbidity, and NDVI products from a normalized Landsat scene.
+
+    This class handles the creation of key environmental indicators derived from preprocessed
+    Landsat imagery. It prepares the working environment, loads necessary data, and outputs
+    masks, raster layers, summaries, and figures. It also manages database interaction and
+    export of results to external servers or CSV files.
+
+    See Also
+    --------
+    __init__ : Initializes the class and defines all paths and attributes required.
+    """
     
         
     def __init__(self, ruta_nor):
