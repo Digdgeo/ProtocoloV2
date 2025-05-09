@@ -14,18 +14,46 @@ from .productos import Product
 from .coast import Coast
 from .utils import enviar_correo, enviar_notificacion_finalizada
 
+"""
+Download and process Landsat Collection 2 scenes using the USGS API.
+
+This script connects to the USGS EarthExplorer API to search for recent
+Landsat Collection 2 Level-2 scenes over a given location, downloads the
+product bundle, extracts the data, and runs the full processing chain using
+the `Landsat`, `Product`, and `Coast` classes.
+
+After processing, it sends an email notification with a quicklook image and
+summarized metadata, including cloud and flood coverage.
+
+Intended to be run periodically via cron or as a standalone script.
+
+Dependencies
+------------
+- usgs
+- pymongo
+- requests
+- tarfile
+- protocolov2, productos, coast, utils (custom modules)
+"""
+
 # --- FUNCIÓN PARA LOGIN USGS CON LOGOUT AUTOMÁTICO ---
 def get_usgs_api_key(usuario, password):
 
     """
-    Logs out any existing USGS session and logs in again to obtain a valid API key.
+    Log out any existing USGS session and obtain a new API key.
 
-    Args:
-        usuario (str): USGS EarthExplorer username.
-        password (str): USGS EarthExplorer password.
+    Parameters
+    ----------
+    usuario : str
+        USGS EarthExplorer username.
 
-    Returns:
-        str: Valid API key for authenticated USGS requests.
+    password : str
+        USGS EarthExplorer password.
+
+    Returns
+    -------
+    str
+        A valid API key to be used in subsequent USGS API requests.
     """
      
     try:
@@ -52,22 +80,45 @@ def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
                              output_dir='/path/to/folder/landsat/v02/ori/rar'):
     
     """
-    Main function to search, download, and process new Landsat Collection 2 Level-2 scenes.
+    Search, download, and process new Landsat scenes from the USGS API.
 
-    Args:
-        latitude (float): Latitude of the area of interest.
-        longitude (float): Longitude of the area of interest.
-        days_back (int): Number of days to look back from today or `end_date`.
-        end_date (str or None): End date in ISO format (YYYY-MM-DD). Defaults to today.
-        process (bool): Whether to process the scene after downloading. Defaults to True.
-        max_cloud_cover (int): Maximum acceptable cloud cover. Currently unused.
-        output_dir (str): Directory to save the downloaded `.tar` files.
+    This function queries the USGS EarthExplorer API for recent Landsat Collection 2
+    Level-2 scenes, downloads the product bundle, extracts the files, and launches
+    the full processing workflow using the `Landsat`, `Product`, and `Coast` classes.
 
-    Notes:
-        - Only Tier 1 (`T1`) and `L2SP` products are considered valid.
-        - Already downloaded/processed scenes (in MongoDB) are skipped.
-        - After download, the scene is extracted and processed using the Landsat and Product classes.
-        - If successful, a notification email with a quicklook image is sent.
+    Parameters
+    ----------
+    latitude : float
+        Latitude of the center of the area of interest.
+
+    longitude : float
+        Longitude of the center of the area of interest.
+
+    days_back : int, optional
+        Number of days to look back from `end_date` (default is 15).
+
+    end_date : str or None, optional
+        End date for the search in ISO format (YYYY-MM-DD). Defaults to today.
+
+    process : bool, optional
+        Whether to run the processing workflow after download (default is True).
+
+    max_cloud_cover : int, optional
+        Maximum acceptable cloud cover (currently not used in filtering).
+
+    output_dir : str, optional
+        Path to save the downloaded `.tar` bundles.
+
+    Notes
+    -----
+    - Only scenes with product type `L2SP` and Tier 1 (`T1`) are considered.
+    - Scenes already present in MongoDB are skipped.
+    - If no new scenes are found, an email is sent to notify the team.
+    - If processing is successful, another email is sent with a quicklook image.
+
+    Returns
+    -------
+    None
     """
 
     hoy = datetime.date.today() if end_date is None else datetime.date.fromisoformat(end_date)
