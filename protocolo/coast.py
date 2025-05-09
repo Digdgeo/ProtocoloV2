@@ -13,24 +13,48 @@ import cv2
 import fiona
 
 class Coast:
+
+    """
+    Generate coastal products (coastline and embryonic dune) from a processed Landsat scene.
+
+    This class retrieves sea level data from the PortusCopia API and uses the flood mask 
+    and NDVI raster to extract the coastline and dune front as shapefiles. It also provides 
+    visual diagnostics of sea level for the acquisition date.
+
+    See Also
+    --------
+    __init__ : Initializes paths, metadata, and input masks needed for processing.
+    run : Executes the full sequence for downloading tide data, extracting features, 
+          and saving outputs.
+    """
     
     def __init__(self, pro_escena_path, mtl_dict=None, nombre_mask=None, zona='Bonanza_Bon2_3333'):
 
         """
-        Initializes the Coast class for extracting coastal lines and embryonic dunes from Landsat scenes.
+        Initialize the Coast object with scene paths, metadata, and flood mask.
 
-        Args:
-            pro_escena_path (str): Path to the processed scene directory.
-            mtl_dict (dict, optional): Metadata dictionary from the Landsat MTL file containing scene information (default: None).
-            nombre_mask (str, optional): Filename of the flood mask to use. If None, the function searches for a '_flood.tif' file within the scene directory.
-            zona (str, optional): PortusCopia tide gauge zone code (default: 'Bonanza_Bon2_3333').
+        This method sets up internal attributes based on the processed Landsat scene directory.
+        It locates the flood mask and NDVI file (if available), extracts the acquisition date 
+        from the scene name, and sets default parameters for tide zone and local acquisition time.
 
-        Sets:
-            fecha (datetime.date): Acquisition date extracted from the scene ID.
-            hora_local (str): Default Landsat local time of acquisition in HH:MM format (10:15).
-            mascara_agua (str): Absolute path to the flood mask file.
-            costa_extent (str): Absolute path to the coastline clipping shapefile.
-            ndvi_escena (str, optional): Absolute path to the NDVI raster file, if found in the scene directory.
+        Parameters
+        ----------
+        pro_escena_path : str
+            Path to the processed scene directory (`pro/escena_id`).
+
+        mtl_dict : dict, optional
+            Metadata dictionary extracted from the MTL file of the Landsat scene.
+
+        nombre_mask : str, optional
+            Filename of the flood mask. If None, it searches for a file matching `*_flood.tif` in the scene folder.
+
+        zona : str, optional
+            PortusCopia tide gauge zone code used to construct the download URL (default is 'Bonanza_Bon2_3333').
+
+        Notes
+        -----
+        - If no flood mask is found, a warning is printed.
+        - The NDVI file is optional and will be used only if available.
         """
         
         self.escena_path = pro_escena_path
@@ -67,20 +91,19 @@ class Coast:
 
     def descargar_nivel_mar(self):
 
-        """Downloads the sea level data for the given scene from the PortusCopia API.
+        """
+        Download sea level data for the scene from the PortusCopia API.
 
-        This method fetches the sea level data for the scene based on its
-        acquisition date and stores the file locally. If the scene's year
-        is before 1993, it skips the download and assigns a default sea
-        level value of 0.0.
+        This method fetches the sea level data (`.nc4` file) for the acquisition date of the scene 
+        using the configured tide gauge zone. If the scene is dated before 1993, the download is skipped 
+        and the sea level is set to 0.0 by default.
 
-        Args:
-            scene (str): The identifier or name of the scene for which to
-                download sea level data.
+        The file is saved in the `coast` folder within the base project directory.
 
-        Raises:
-            Exception: If the download fails or the data is not available
-                for the scene's year.
+        Raises
+        ------
+        Exception
+            If the request fails or the file cannot be downloaded.
         """
 
         if self.fecha.year < 1993:
@@ -110,18 +133,23 @@ class Coast:
     def extraer_marea_en_hora(self, media_anual=5.4387):
 
         """
-        Extracts the sea level at a specific time (based on the local time of the scene)
-        from the downloaded sea level data.
+        Extract the sea level at the Landsat scene acquisition time.
 
-        This method retrieves the sea level data for the scene's acquisition time,
-        adjusts it based on the annual mean sea level, and stores the result.
+        This method reads the downloaded sea level dataset (`.nc4`) and retrieves the sea level 
+        value closest to the scene's local acquisition time (converted to UTC). The value is 
+        adjusted by subtracting the annual mean sea level.
 
-        Args:
-            media_anual (float, optional): The annual mean sea level in meters to
-                adjust the retrieved value. Defaults to 5.4387.
+        The final sea level is stored in `self.slev_value`.
 
-        Raises:
-            ValueError: If the sea level data is not available for the given time.
+        Parameters
+        ----------
+        media_anual : float, optional
+            Annual mean sea level (in meters) to center the value (default is 5.4387, typical for 2024).
+
+        Raises
+        ------
+        ValueError
+            If the sea level value cannot be retrieved from the file.
         """
         
         if not self.nc_path or not os.path.exists(self.nc_path):
@@ -152,22 +180,27 @@ class Coast:
     def obtener_linea_costa(self, mask_path):
 
         """
-        Extracts the coastline from a given water mask using contour detection.
+        Extract the coastline from a binary water mask using contour detection.
 
-        This method detects the coastline by finding contours in the provided water mask
-        (binary mask where water is represented by 1) and then simplifies the coastline
-        using the Shapely library. The result is clipped using the class attribute
-        `self.costa_extent` shapefile and stored as a shapefile with the scene ID.
+        This method processes a flood mask raster (where water is coded as 1) to detect 
+        the coastline. It applies contour detection and filtering based on area and shape, 
+        simplifies the resulting geometry, clips it using a predefined shapefile, and 
+        stores the output as a shapefile with sea level metadata.
 
-        Args:
-            mask_path (str): The path to the water mask file (_flood.tif) used to detect the coastline.
+        Parameters
+        ----------
+        mask_path : str
+            Path to the water mask raster file (e.g., `*_flood.tif`).
 
-        Returns:
-            gpd.GeoDataFrame: A GeoDataFrame containing the coastline geometry (as LineString)
-                and a 'sea_level' column with the corresponding sea level height.
+        Returns
+        -------
+        gpd.GeoDataFrame
+            GeoDataFrame containing the coastline geometry (as LineString) and the sea level.
 
-        Raises:
-            ValueError: If no coastline is detected after processing the contours.
+        Raises
+        ------
+        ValueError
+            If no valid coastline is detected after contour filtering.
         """
         
         with rasterio.open(mask_path) as src:
@@ -231,25 +264,33 @@ class Coast:
     def obtener_duna_embrionaria(self, ndvi_path):
 
         """
-        Extracts the embryonic dune line from an NDVI raster.
+        Extract the embryonic dune line from an NDVI raster.
 
-        This method identifies the embryonic dune by creating a binary mask of vegetation
-        (NDVI > 0.15, a threshold indicating potential vegetation) and then generating
-        contours from the NDVI mask. It also buffers the extracted coastline (from self.costa)
-        by approximately 300 meters to restrict the potential dune line to areas near the coast.
-        The resulting embryonic dune line(s) are stored as LineString geometries in a GeoDataFrame.
+        This method identifies vegetated areas (NDVI > 0.15) near the coastline, 
+        using a 300-meter buffer from the previously extracted coastline. It detects 
+        contours in the vegetation mask, filters them by area, simplifies the geometry, 
+        and stores the result as a shapefile with sea level information.
 
-        Args:
-            ndvi_path (str): The path to the NDVI raster file used to detect the embryonic dune.
+        Parameters
+        ----------
+        ndvi_path : str
+            Path to the NDVI raster file corresponding to the scene.
 
-        Returns:
-            gpd.GeoDataFrame: A GeoDataFrame containing the embryonic dune line(s) geometry (as LineString)
-                and a 'sea_level' column with the corresponding sea level height.
+        Returns
+        -------
+        gpd.GeoDataFrame
+            GeoDataFrame with one or more LineString geometries representing the embryonic dune lines.
 
-        Raises:
-            ValueError: If no contours are found or if the identified dune area is too small
-                to be considered a valid embryonic dune.
-        """ 
+        Raises
+        ------
+        ValueError
+            If no valid dune contours are detected or if all are too small.
+
+        Notes
+        -----
+        The detection of embryonic dunes using NDVI is limited by the 30-meter resolution 
+        of Landsat imagery. This method is experimental and results may be noisy or incomplete.
+        """
         
         # 1. Leer el raster NDVI
         with rasterio.open(ndvi_path) as src:
@@ -315,21 +356,29 @@ class Coast:
     def graficar_nivel_mar_diario(self, save_path=None, media_anual=5.4387):
 
         """
-        Plots the daily sea level and saves or displays the graph.
+        Plot daily sea level time series and highlight the Landsat acquisition time.
 
-        This method generates a plot of the daily sea level data (in meters), adjusting
-        it with the provided annual mean value. It also highlights the specific sea
-        level at the time of the Landsat scene acquisition. The plot can be saved
-        to a file or displayed interactively.
+        This method visualizes sea level data for the date of the Landsat scene,
+        adjusted by the annual mean sea level. It marks the acquisition time with a 
+        vertical line and optionally saves the figure to disk.
 
-        Args:
-            save_path (str, optional): The path where the plot will be saved. If None, the
-                plot will be displayed instead.
-            media_anual (float, optional): The annual mean sea level value in meters used to
-                adjust the daily data (default is 5.4387, corresponding to the 2024 mean).
+        Parameters
+        ----------
+        save_path : str, optional
+            Path to save the plot. If None, the plot is displayed interactively.
 
-        Returns:
-            None: The method either displays or saves the graph and does not return a value.
+        media_anual : float, optional
+            Annual mean sea level (in meters) used to center the values 
+            (default is 5.4387, typical for 2024).
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        This plot is useful for interpreting the relative sea level during the Landsat
+        acquisition, but the Landsat scene does not capture sea level directly.
         """
 
         if not self.nc_path or not os.path.exists(self.nc_path):
@@ -365,23 +414,27 @@ class Coast:
     def run(self):
 
         """
-        Executes the full process for generating the coastline and embryonic dune lines.
+        Execute the full workflow to extract coastal and dune features from a Landsat scene.
 
-        This method orchestrates the entire process of:
-            1. Downloading tide data.
-            2. Extracting the sea level at the time of the Landsat scene.
-            3. Generating the coastline based on the provided water mask.
-            4. Optionally generating the embryonic dune line based on the available NDVI image.
-            5. Plotting the daily sea level.
+        This method orchestrates the complete process of coastal feature generation:
+        
+        1. Download sea level data from PortusCopia.
+        2. Extract the sea level value at the Landsat scene acquisition time.
+        3. Generate the coastline from the flood mask.
+        4. Optionally generate the embryonic dune line from the NDVI raster (if available).
+        5. Plot the daily sea level time series.
 
-        The method expects the `self.pro_escena_path` and relevant attributes (e.g., `self.fecha`)
-        to be initialized. The generated coastline and (optionally) embryonic dune line
-        will be stored as shapefiles. The sea level plot will be saved or displayed.
+        Any exceptions encountered during the steps are printed to the console.
 
-        Any errors encountered during each step will be printed to the console.
+        Returns
+        -------
+        None
 
-        Returns:
-            None: The method performs the actions but does not return a value.
+        Notes
+        -----
+        This workflow is tailored for Landsat-derived flood masks and NDVI products, 
+        but detection of fine features like embryonic dunes may be limited due to 
+        the 30-meter spatial resolution of Landsat imagery.
         """
         
         print("🌊 Iniciando proceso completo de línea de costa y duna...")
