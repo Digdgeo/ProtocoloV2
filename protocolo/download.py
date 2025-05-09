@@ -83,8 +83,9 @@ def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
     Search, download, and process new Landsat scenes from the USGS API.
 
     This function queries the USGS EarthExplorer API for recent Landsat Collection 2
-    Level-2 scenes, downloads the product bundle, extracts the files, and launches
-    the full processing workflow using the `Landsat`, `Product`, and `Coast` classes.
+    Level-2 scenes over a defined location, downloads the Level-2 product bundle (`L2SP`),
+    extracts the contents, and executes the full processing pipeline using the `Landsat`, 
+    `Product`, and `Coast` classes.
 
     Parameters
     ----------
@@ -104,17 +105,17 @@ def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
         Whether to run the processing workflow after download (default is True).
 
     max_cloud_cover : int, optional
-        Maximum acceptable cloud cover (currently not used in filtering).
+        Maximum acceptable cloud cover (currently unused in filtering).
 
     output_dir : str, optional
         Path to save the downloaded `.tar` bundles.
 
     Notes
     -----
-    - Only scenes with product type `L2SP` and Tier 1 (`T1`) are considered.
+    - Only Tier 1 (`T1`) and `L2SP` scenes are considered.
     - Scenes already present in MongoDB are skipped.
     - If no new scenes are found, an email is sent to notify the team.
-    - If processing is successful, another email is sent with a quicklook image.
+    - If processing is successful, an email is sent with the quicklook image.
 
     Returns
     -------
