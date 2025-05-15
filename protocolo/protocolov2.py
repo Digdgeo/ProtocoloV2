@@ -50,20 +50,62 @@ class Landsat:
         """
         Initialize a Landsat object from a given scene path.
 
-        This method reads the scene metadata, sets up internal attributes, prepares
-        the output directory structure, downloads the quicklook image, and creates
-        a new MongoDB document for the scene. If `inicializar` is set to False,
-        initialization steps are skipped (useful for inspection or documentation purposes).
+        This constructor parses the scene's directory and metadata, identifies the sensor type, 
+        sets up internal paths, downloads the quicklook image, and uploads initial metadata 
+        to the MongoDB database. If `inicializar` is False, only basic attributes are set 
+        without accessing files or the database.
 
         Parameters
         ----------
         ruta_escena : str
-            Path to the Landsat scene directory containing the original downloaded files.
+            Path to the directory containing the original downloaded Landsat scene.
 
         inicializar : bool, optional
-            Whether to perform full initialization. If False, only sets basic attributes 
-            without reading metadata or connecting to MongoDB (default is True).
+            Whether to perform full initialization, including metadata parsing, 
+            folder creation, and MongoDB insertion (default is True).
+
+        Attributes
+        ----------
+        escena : str
+            Scene folder name extracted from the given path.
+
+        last_name : str
+            Internal ID for the scene, used as MongoDB `_id`, based on date, sensor, path and row.
+
+        sensor : str
+            Sensor name, one of 'OLI', 'ETM+', or 'TM'.
+
+        path : str
+            Path value extracted from the scene ID (3 digits).
+
+        row : str
+            Row value extracted from the scene ID (2 digits, zero-padded).
+
+        base, ori, pro, geo, rad, nor, data, temp : str
+            Paths to the root folder and its subdirectories.
+
+        pro_escena, geo_escena, rad_escena, nor_escena : str
+            Scene-specific folders for storing outputs.
+
+        mtl : dict
+            Dictionary with parsed metadata from the MTL file.
+
+        bandas_normalizadas : list of str
+            List of spectral bands successfully normalized for this scene.
+
+        cloud_mask_values : list of int
+            Values used to identify cloud or fill pixels, depending on the sensor.
+
+        qk_name : str
+            Path to the downloaded Landsat quicklook JPEG.
+
+        pn_cover : float or None
+            Percentage of cloud cover over Doñana, set later in processing.
+
+        newesc : dict
+            Document inserted into MongoDB with basic scene metadata and processing info.
         """
+
         
         self.ruta_escena = ruta_escena
 
