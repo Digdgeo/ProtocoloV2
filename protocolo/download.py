@@ -77,7 +77,8 @@ db = database.Landsat
 # --- FUNCIÓN PRINCIPAL DE DESCARGA ---
 def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
                              process=True, max_cloud_cover=100,
-                             output_dir='/path/to/folder/landsat/v02/ori/rar'):
+                             output_dir='/mnt/datos_last/ori/rar',
+                             reprocess=False):
     
     """
     Search, download, and process new Landsat scenes from the USGS API.
@@ -144,7 +145,25 @@ def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
         display_id = escena['displayId']
         partes = display_id.split('_')
         if len(partes) >= 3 and partes[1] == 'L2SP' and partes[-1] == 'T1':
-            if not db.find_one({'tier_id': display_id}):
+
+            # --- Generar el _id como en la clase Landsat ---
+            # Ejemplo: LC08_L2SP_202034_20250506_20250513_02_T1
+            sat_code = display_id[:4]  # LC08, LE07, etc.
+            sensor_map = {"LC08": "l8oli", "LC09": "l9oli", "LE07": "l7etm", "LT05": "l5tm"}
+            sensor = sensor_map.get(sat_code, "unknown")
+            
+            # Ejemplo: LC08_L2SP_202034_20250506_20250513_02_T1
+            path_row = display_id.split('_')[2]
+            path = path_row[:3]
+            row = path_row[-2:]
+            fecha = display_id.split('_')[3]
+            
+            last_name = f"{fecha}{sensor}{path}_{row}"
+            print(f"Chequeando en MongoDB si existe: {last_name}")
+
+            escena_en_db = db.find_one({'_id': last_name})
+
+            if not escena_en_db or reprocess:
                 escenas_nuevas.append(escena)
 
     destinatarios = [
@@ -161,11 +180,10 @@ def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
         return
 
     for escena in escenas_nuevas:
-        
         display_id = escena["displayId"]
         entity_id = escena["entityId"]
         mail = 0
-        quicklook = None  # <- para poder usarlo también si hay error
+        quicklook = None
 
         print(f"\n🚀 Procesando escena: {display_id}")
 
@@ -219,7 +237,7 @@ def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
                 tar.extractall(sc_dest)
 
             landsat = Landsat(sc_dest)
-            quicklook = landsat.qk_name  # quicklook disponible incluso si falla .run()
+            quicklook = landsat.qk_name
 
             landsat.run()
 
@@ -227,7 +245,8 @@ def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
                 'escena': landsat.last_name,
                 'nubes_escena': landsat.newesc['Clouds']['cloud_scene'],
                 'nubes_land': landsat.newesc['Clouds']['land cloud cover'],
-                'nubes_Doñana': landsat.pn_cover
+                'nubes_Doñana': landsat.pn_cover,
+                'bandas_normalizadas': landsat.bandas_normalizadas
             }
 
             print(f"🖼️ Quicklook generado: {quicklook}")
@@ -235,20 +254,14 @@ def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
             landsatp = Product(landsat.nor_escena)
             landsatp.run()
 
-            try:
-                productos = db.find_one({'_id': landsat.last_name}, {'Productos': 1}).get("Productos", [])
-                flood_data = next((prod["Flood"] for prod in productos if isinstance(prod, dict) and "Flood" in prod), None)
-                if flood_data:
-                    info_escena['flood_PN'] = flood_data
-                    mail += 1
-            except Exception as e:
-                print(f"⚠️ No hay datos de inundación: {e}")
+            info_escena['productos_generados'] = landsatp.productos_generados
 
-            enviar_notificacion_finalizada(info_escena, archivo_adjunto=quicklook, exito=(mail > 0))
+            enviar_notificacion_finalizada(info_escena, archivo_adjunto=quicklook)
 
         except Exception as e:
             print(f"❌ Error procesando escena {display_id}: {e}")
             enviar_notificacion_finalizada({"escena": display_id}, archivo_adjunto=quicklook, exito=False)
+
 
 
 # --- LLAMADA PRINCIPAL ---
@@ -256,5 +269,6 @@ if __name__ == "__main__":
     download_landsat_scenes(
         latitude=37.05,
         longitude=-6.35,
-        days_back=2
+        #end_date="2025-04-29",
+        days_back=10
     )
