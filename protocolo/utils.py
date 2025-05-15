@@ -205,10 +205,192 @@ def enviar_notificacion_finalizada(info_escena, archivo_adjunto=None, exito=True
         print(f"Error al enviar el correo: {e}")
 
 
+#############################################################################################################
+####################                   METADATOS (GEONETWORK)                            ####################        
+#############################################################################################################
 
+# Metadatos de la escena (Geonetwork)
+
+def generar_metadatos_flood(self):
+
+    """
+    Generates the REMegafucking ISO 19139 metadata XML file for the flood mask product using a Jinja2 template.
+
+    The function reads flood summary data for marshes and lagoons from CSV files and fills
+    the corresponding fields in the metadata template. The output XML is saved in the product folder.
+
+    Parameters
+    ----------
+    self : Product
+        Instance of the Product class containing scene attributes and file paths.
+
+    Returns
+    -------
+    None
+    """
+    
+    print('**** Metadatos')
+    csv_dir = os.path.join(self.pro_escena, self.escena)
+    print('CSVs here:', csv_dir)
+
+    # Read marsh data from SUPERFICIE_INUNDADA.csv
+    csv_marismas = os.path.join(csv_dir, f"{self.escena}_superficie_inundada.csv".lower())
+    print(csv_marismas)
+    df_marismas = pd.read_csv(csv_marismas)
+    fila_total = df_marismas[df_marismas["recinto"] == "Total"]
+
+    if not fila_total.empty:
+        sup_ha = round(float(fila_total["area_inundada"].values[0]), 1)
+        sup_pct = round(float(fila_total["porcentaje_inundacion"].values[0]), 1)
+    else:
+        sup_ha = 0
+        sup_pct = 0
+
+    # Read lagoon data from RESUMEN_LAGUNAS.csv
+    csv_lagunas = os.path.join(csv_dir, f"{self.escena}_resumen_lagunas.csv".lower())
+    if os.path.exists(csv_lagunas):
+        df_lag = pd.read_csv(csv_lagunas)
+        n_lagunas = int(df_lag["numero_cuerpos_con_agua"].values[0])
+        lagunas_ha = round(float(df_lag["superficie_total_inundada"].values[0]), 1)
+        lagunas_pct = round(float(df_lag["porcentaje_inundacion"].values[0]), 1)
+    else:
+        n_lagunas = 0
+        lagunas_ha = 0
+        lagunas_pct = 0
+
+    # Load and render XML template with context
+    template_path = os.path.join(self.data, "flood_metadata_template_final.xml")
+    with open(template_path, "r", encoding="utf-8") as f:
+        template = Template(f.read())
+
+    context = {
+        "fecha_actual": date.today().isoformat(),
+        "escena": self.escena,
+        "fecha_escena": datetime.strptime(self.escena[:8], "%Y%m%d").date(),  # asumiendo que tienes self.fecha
+        "abstracto": "Máscara de agua derivada de imágenes Landsat Collection 2 Nivel 2 (reflectividad en superficie), normalizadas con áreas pseudo invariantes. Valores: -9999=NoData, 0=Seco, 1=Inundado, 2=No válido (nubes/sombras/errores radiométricos).",
+        "sup_marismas_ha": sup_ha,
+        "sup_marismas_pct": sup_pct,
+        "sup_lagunas_ha": lagunas_ha,
+        "sup_lagunas_pct": lagunas_pct,
+        "n_lagunas": n_lagunas,
+        "nombre_archivo": f"{self.escena}_flood.tif"
+    }
+
+    
+    xml_rendered = template.render(context)
+    output_path = os.path.join(self.pro_escena, f"{self.escena}_flood_metadata.xml")
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(xml_rendered)
+
+
+def extraer_uuid(xml_path):
+    
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+    ns = {'gmd': 'http://www.isotc211.org/2005/gmd', 'gco': 'http://www.isotc211.org/2005/gco'}
+    uuid = root.find('.//gmd:fileIdentifier/gco:CharacterString', ns)
+    return uuid.text if uuid is not None else None
+
+def subir_xml_y_tif_a_geonetwork(xml_path, tif_path, username, password, server="https://goyas.csic.es/geonetwork"):
+    
+    """
+    Uploads a metadata XML file and a GeoTIFF file as an attachment to the same record in GeoNetwork.
+
+    Parameters
+    ----------
+    xml_path : str
+        Path to the metadata XML file.
+    tif_path : str
+        Path to the GeoTIFF file (flood mask).
+    username : str
+        GeoNetwork username.
+    password : str
+        Password for the GeoNetwork user.
+    server : str, optional
+        Base URL of the GeoNetwork server (default is 'https://goyas.csic.es/geonetwork').
+
+    Returns
+    -------
+    dict
+        Dictionary with the keys 'status', 'uuid', and 'mensaje', where:
+        - 'status' is either 'ok' or 'error'
+        - 'uuid' is the UUID of the record (if successful)
+        - 'mensaje' contains a status message or error details
+    """
+    
+    session = requests.Session()
+    login_url = f"{server}/srv/spa/info?type=me"
+    login_response = session.post(login_url, auth=(username, password))
+    xsrf_token = login_response.cookies.get("XSRF-TOKEN")
+
+    if not xsrf_token:
+        return {"status": "error", "uuid": None, "mensaje": "❌ No se pudo obtener el token XSRF."}
+
+    headers = {
+        "Accept": "application/json",
+        "X-XSRF-TOKEN": xsrf_token
+    }
+
+    # UUID basado en el nombre del archivo (sin extensión)
+    uuid = extraer_uuid(xml_path)
+    if not uuid:
+        return {"status": "error", "uuid": None, "mensaje": "❌ No se pudo extraer el UUID del XML."}
+
+
+    # Comprobar si el UUID ya existe en GeoNetwork
+    check_url = f"{server}/srv/api/records/{uuid}"
+    check_response = session.get(check_url, headers=headers, auth=(username, password))
+
+    if check_response.status_code == 200:
+        print(f"ℹ️ El UUID {uuid} ya existe en GeoNetwork. No se subirá de nuevo el XML.")
+    else:
+        # Subir el XML si no existe
+        upload_url = f"{server}/srv/api/records"
+        with open(xml_path, "rb") as file:
+            files = {"file": (os.path.basename(xml_path), file, "application/xml")}
+            params = {"uuidProcessing": "OVERWRITE"}
+            response = session.post(upload_url, headers=headers, files=files, auth=(username, password), params=params)
+
+        if response.status_code != 201:
+            return {
+                "status": "error",
+                "uuid": uuid,
+                "mensaje": f"❌ Error al subir el XML: {response.status_code} - {response.text}"
+            }
+
+        print(f"✅ XML subido correctamente con UUID: {uuid}")
+
+    # Subir el TIF como adjunto
+    print(f"📎 Subiendo TIF al UUID: {uuid}")
+    attach_url = f"{server}/srv/api/records/{uuid}/attachments"
+    with open(tif_path, "rb") as file:
+        files = {"file": (os.path.basename(tif_path), file)}
+        attach_response = session.post(attach_url, headers=headers, files=files, auth=(username, password))
+
+    print(f"📤 Respuesta del servidor al adjuntar TIF: {attach_response.status_code}")
+    print(f"🧾 Contenido: {attach_response.text}")
+
+    if attach_response.status_code in [200, 201]:
+        return {
+            "status": "ok",
+            "uuid": uuid,
+            "mensaje": "✅ XML (si era necesario) y TIFF subidos correctamente."
+        }
+    else:
+        return {
+            "status": "error",
+            "uuid": uuid,
+            "mensaje": f"⚠️ XML subido pero error al adjuntar TIF: {attach_response.status_code} - {attach_response.text}"
+        }
  
+
+
 # Hydroperiods 
-import os
+#############################################################################################################
+####################                   Hidroperiodo                                      ####################        
+#############################################################################################################import os
+
 import shutil
 from datetime import datetime
 from pymongo import MongoClient
