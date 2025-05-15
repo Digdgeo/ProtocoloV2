@@ -28,7 +28,10 @@ In future versions, some functions in this module will be moved into their corre
 classes (e.g., `Hydroperiod`, `Mailing`) to improve modularity and maintainability.
 """
 
-# Mails
+#############################################################################################################
+####################                   MAILING (LAST-EBD STAFF)                          ####################        
+#############################################################################################################
+
 def enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto=None):
 
     """
@@ -58,7 +61,7 @@ def enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto=None):
     servidor_smtp = 'smtp.gmail.com'
     puerto_smtp = 587
     correo_remitente = 'lastebd.protocolo.vlab@gmail.com'
-    contraseña_remitente = 'axyr tkwi fvkv kkfd'
+    contraseña_remitente = '**** COP gia kIWI'
 
     # Crea el objeto de mensaje
     mensaje = MIMEMultipart()
@@ -94,115 +97,123 @@ def enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto=None):
     except Exception as e:
         print(f"Error al enviar el correo: {e}")
 
-# Mails
-def enviar_notificacion_finalizada(info_escena, archivo_adjunto=None, exito=True):
+
+def imprimir_csv_como_texto(path, titulo):
+    
+    """
+    Prints the contents of a CSV file as plain text for inclusion in an email.
+
+    Parameters
+    ----------
+    path : str
+        Path to the CSV file.
+    titulo : str
+        Title to be displayed in the email section.
+
+    Returns
+    -------
+    str
+        Formatted text with the contents of the CSV or an error message if reading fails.
+    """
+
+    if not os.path.exists(path):
+        return f"\n⚠️ {titulo} no disponible o no generado.\n"
+    try:
+        df = pd.read_csv(path)
+        if df.empty:
+            return f"\n⚠️ {titulo} está vacío.\n"
+        texto = f"\n{titulo}:\n"
+        texto += df.to_string(index=False)
+        return texto
+    except Exception as e:
+        return f"\n⚠️ Error leyendo {titulo}: {str(e)}\n"
+
+
+def enviar_notificacion_finalizada(info_escena, archivo_adjunto=None):
 
     """
-    Sends a summary notification email after processing a Landsat scene.
+    Sends a notification email summarizing the result of processing a Landsat scene.
 
-    This function constructs a formatted message based on the scene's metadata,
-    including cloud coverage and flood statistics over marsh zones and lagoons.
-    It then sends the message (with optional image attachment) to a predefined list
-    of recipients using `enviar_correo()`.
+    This function composes a formatted message based on the scene's metadata,
+    including cloud coverage, normalized bands, and generated products.
+    If the "Flood" product was created, it includes summaries from the corresponding
+    CSV files for flooded marsh areas and lagoon statistics.
+
+    The message is sent to a predefined list of recipients using `enviar_correo()`.
+    An optional quicklook image can be attached.
 
     Parameters
     ----------
     info_escena : dict
-        Dictionary containing metadata and analysis results for the scene. Keys include:
+        Dictionary containing metadata and processing results for the scene. Keys include:
         - 'escena' : str, scene ID.
-        - 'nubes_escena' : float, cloud cover over the full scene (%).
+        - 'nubes_escena' : float, cloud cover for the full scene (%).
         - 'nubes_land' : float, cloud cover over land (%).
-        - 'nubes_Doñana' : float, cloud cover over Doñana National Park (%).
-        - 'flood_PN' : dict, flooded area per marsh zone in hectares (optional).
-        - 'lagunas' : dict, summary stats on water presence in lagoons (optional).
+        - 'nubes_Doñana' : float, cloud cover over Doñana (%).
+        - 'bandas_normalizadas' : list of str, normalized bands (optional).
+        - 'productos_generados' : list of str, generated products (optional).
     archivo_adjunto : str, optional
-        Path to a quicklook image (PNG or JPG) to attach to the message (default is None).
-    exito : bool, optional
-        Whether the processing was successful and normalization was completed (default is True).
+        Path to a quicklook image to be attached to the email (default is None).
 
-    Raises
-    ------
-    Exception
-        If the email could not be sent.
+    Notes
+    -----
+    This function does not raise exceptions but prints error messages if email
+    sending or file reading fails.
     """
 
     destinatarios = [
-        'digd.geografo@gmail.com', 'diegogarcia@ebd.csic.es', 
-        'jbustamante@ebd.csic.es', 'rdiaz@ebd.csic.es', 
-        'isabelafan@ebd.csic.es', 'daragones@ebd.csic.es', 
-        'gabrielap.romero@ebd.csic.es'
+        'some@gmail.com', 'random@hotmail.es', 'mails@yahoo.es',
+        'go@latinmail.es', 'here@outlook.es'
     ]
-    asunto = 'Nueva escena Landsat procesada' if exito else 'Nueva Escena Landsat procesada sin normalizar'
-    estado = "procesada exitosamente" if exito else "procesada, pero sin poder normalizarse"
+    escena = info_escena.get("escena", "N/A")
+    bandas = info_escena.get("bandas_normalizadas", [])
+    productos = info_escena.get("productos_generados", [])
 
-    # Datos del área total de cada recinto en hectáreas
-    area_total = {
-        'El Rincon del Pescador': 3499.3,
-        'Marismillas': 3861.1,
-        'Caracoles': 2718.9,
-        'FAO': 64.8,
-        'Marisma Occidental': 11668.9,
-        'Marisma Oriental': 9575.1,
-        'Entremuros': 2617.4
-    }
-    
-    # Construye el cuerpo del correo
+    asunto = f"✅ Escena {escena} procesada"
+
     cuerpo = f"""
     Hola equipo LAST,
-
-    Soy el bot del Protocolo de Dieguito, de todos los bots el que más está hasta los... ¿circuitos internos? de la USGS
-    y sus cambios en las políticas de acceso y tipos de procesado.
-
-    Este es un mail automático enviado desde la máquina virtual cloudlast01
-    para informaros de que la escena {info_escena.get('escena', 'N/A')} ha sido {estado}. 
-
-    Detalles de la escena:
-
-    - Nubes escena: {info_escena.get('nubes_escena', 'N/A')}
-    - Nubes escena tierra: {info_escena.get('nubes_land', 'N/A')}
-    - Nubes Parque nacional: {info_escena.get('nubes_Doñana', 'N/A')}
-
-    Superficies inundadas:
+    
+    Soy el bot del Protocolo de Dieguito (de todos los bots, el más hasta las webs de la USGS 😩),
+    y os escribo desde la máquina virtual cloudlast01 para informaros de una nueva escena procesada.
+    
+    📦 ESCENA PROCESADA: {escena}
+    
+    🛰️ Detalles:
+    • Nubes escena total:    {info_escena.get('nubes_escena', 'N/A')}%
+    • Nubes sobre tierra:    {info_escena.get('nubes_land', 'N/A')}%
+    • Nubes en Doñana:       {info_escena.get('nubes_Doñana', 'N/A')}%
+    
+    ⚙️ Bandas normalizadas:
+    {', '.join(bandas) if bandas else '❌ No se ha normalizado ninguna banda'}
+    
+    🧫 Productos generados:
+    {', '.join(productos) if productos else '❌ No se ha generado ningún producto'}
+    
     """
     
-    # Agregar los valores de 'flood_PN' y calcular el porcentaje de inundación
-    flood_pn = info_escena.get('flood_PN', {})
-    if flood_pn and exito:
-        for area, superficie_inundada in flood_pn.items():
-            if area in area_total:
-                porcentaje_inundado = (superficie_inundada / area_total[area]) * 100
-                cuerpo += f"    - {area}: {superficie_inundada:.2f} ha ({porcentaje_inundado:.2f}% inundado)\n"
-            else:
-                cuerpo += f"    - {area}: {superficie_inundada:.2f} ha (Área total no disponible para cálculo de porcentaje)\n"
-    else:
-        cuerpo += "    - No se encontraron datos de inundación.\n"
+    if "Flood" in productos:
+        ruta_base = os.path.join("/mnt/datos_last/pro", escena, escena)
+        csv_inundada = os.path.join(ruta_base, f"{escena}_superficie_inundada.csv".lower())
+        csv_lagunas = os.path.join(ruta_base, f"{escena}_resumen_lagunas.csv".lower())
 
-    # Información de las lagunas
-    lagunas = info_escena.get("lagunas", {})
-    if exito and lagunas:
-        numero_cuerpos = lagunas.get("numero_lagunas_con_agua", "N/A")
-        porcentaje_cuerpos = lagunas.get("porcentaje_cuerpos_con_agua", "N/A")
-        superficie_inundada = lagunas.get("superficie_total_inundada", "N/A")
-        porcentaje_inundado = lagunas.get("porcentaje_inundado", "N/A")
-        cuerpo += f"""
-    Información de las lagunas:
-    - Número de lagunas con agua: {numero_cuerpos}
-    - Porcentaje de lagunas con agua respecto al total: {porcentaje_cuerpos if porcentaje_cuerpos != "N/A" else "N/A"}%
-    - Superficie total inundada: {superficie_inundada if superficie_inundada != "N/A" else "N/A"} ha
-    - Porcentaje de inundación respecto al total teórico: {porcentaje_inundado if porcentaje_inundado != "N/A" else "N/A"}%
-        """
-    else:
-        cuerpo += "\n    Información de las lagunas no disponible o no procesada.\n"
-                
-    # Mensaje de cierre
-    cuerpo += "\nSaludos\n\nPd. Se adjunta quicklook de la escena si está disponible."
+        cuerpo += "\n🌊 Superficies inundadas:\n"
+        cuerpo += imprimir_csv_como_texto(csv_inundada, "(CSV marisma)")
 
-    # Enviar el correo
-    try:
-        enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto)
-        print("Correo enviado exitosamente.")
-    except Exception as e:
-        print(f"Error al enviar el correo: {e}")
+        cuerpo += "\n\n🌿 Información de lagunas:\n"
+        cuerpo += imprimir_csv_como_texto(csv_lagunas, "(CSV lagunas)")
+
+    cuerpo += f"""
+    
+    📎 Se adjunta el quicklook de la escena.
+    
+    Un saludo protocolario,
+    — El bot 🤖
+    
+    Pd. *In loving memory of Isa and Ricardo, who left us for allegedly better jobs. We miss you anyway ❤️*
+    """
+
+    enviar_correo(destinatarios, asunto, cuerpo, archivo_adjunto)
 
 
 #############################################################################################################

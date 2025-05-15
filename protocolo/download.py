@@ -81,12 +81,15 @@ def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
                              reprocess=False):
     
     """
-    Search, download, and process new Landsat scenes from the USGS API.
+    Searches, downloads, and processes new Landsat scenes using the USGS API.
 
     This function queries the USGS EarthExplorer API for recent Landsat Collection 2
-    Level-2 scenes over a defined location, downloads the Level-2 product bundle (`L2SP`),
-    extracts the contents, and executes the full processing pipeline using the `Landsat`, 
-    `Product`, and `Coast` classes.
+    Level-2 scenes (`L2SP`, `T1`) within a defined radius around a geographic point.
+    It filters out scenes already processed (based on their `_id` in MongoDB),
+    downloads the available bundles, extracts them, and runs the processing pipeline
+    via the `Landsat`, `Product`, and `Coast` classes.
+
+    If the "Flood" product is generated, additional statistics are included in the email.
 
     Parameters
     ----------
@@ -106,17 +109,20 @@ def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
         Whether to run the processing workflow after download (default is True).
 
     max_cloud_cover : int, optional
-        Maximum acceptable cloud cover (currently unused in filtering).
+        Maximum acceptable cloud cover (currently not used for filtering).
 
     output_dir : str, optional
-        Path to save the downloaded `.tar` bundles.
+        Path to the directory where the downloaded `.tar` files will be saved.
+
+    reprocess : bool, optional
+        If True, forces processing even if the scene already exists in MongoDB (default is False).
 
     Notes
     -----
     - Only Tier 1 (`T1`) and `L2SP` scenes are considered.
-    - Scenes already present in MongoDB are skipped.
-    - If no new scenes are found, an email is sent to notify the team.
-    - If processing is successful, an email is sent with the quicklook image.
+    - The unique `_id` used to check for duplicates is built from the date, sensor, path, and row.
+    - Scenes are skipped unless `reprocess=True`.
+    - Email notifications are sent after completion or failure.
 
     Returns
     -------
