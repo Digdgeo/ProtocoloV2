@@ -116,6 +116,9 @@ class Landsat:
         self.parametrosnor = {}
         self.iter = 1
 
+        # Lista para guardar las bandas que se normalizan y dar la información en el correo
+        self.bandas_normalizadas = []
+
         self.mtl = {}
         for i in os.listdir(self.ruta_escena):
             if i.endswith('MTL.txt'):
@@ -603,6 +606,9 @@ class Landsat:
             #connection = pymongo.MongoClient("mongodb://localhost")
             #db=connection.teledeteccion
             #landsat = db.landsat
+
+            # Lista con las bandas normalizadas para el mail
+            self.bandas_normalizadas = sorted(self.parametrosnor.keys())
 
             try:
 
