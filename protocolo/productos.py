@@ -26,7 +26,7 @@ from rasterstats import zonal_stats
 
 # Añadimos la ruta con el código a nuestro pythonpath para poder importar la clase Landsat
 sys.path.append('/root/git/ProtocoloV2/codigo')
-from .utils import process_composition_rgb, process_flood_mask
+from .utils import *
 from .coast import Coast
 
 from pymongo import MongoClient
@@ -67,6 +67,9 @@ class Product(object):
         ruta_nor : str
             Path to the directory containing the normalized Landsat scene.
 
+        publish_metadata : bool, optional
+            If True, the final flood mask and its ISO 19139 metadata will be uploaded to GeoNetwork. Default is False.
+
         Attributes
         ----------
         escena : str
@@ -88,7 +91,7 @@ class Product(object):
             Path to the shapefile with lagoon polygons (EPSG:32629).
 
         rbios : str
-            Path to the RBIOS shapefile (Donana Biologial Reserve).
+            Path to the RBIOS shapefile (Donana Biological Reserve).
 
         out_OCG, out_OCG_VPS : str
             Paths to the remote servers for final product delivery (OCG and VPS).
@@ -107,7 +110,14 @@ class Product(object):
 
         resultados_lagunas : dict
             Dictionary that will store flood analysis results for individual lagoons.
+
+        productos_generados : list of str
+            List of product types successfully generated (e.g., 'Flood', 'Turbidity', 'Depth').
+
+        publish_metadata : bool
+            Indicates whether the metadata and raster should be uploaded to GeoNetwork.
         """
+
 
         self.escena = os.path.split(ruta_nor)[1]
         self.raiz = os.path.split(os.path.split(ruta_nor)[0])[0]
@@ -132,6 +142,9 @@ class Product(object):
         self.flood_escena = None
         self.turbidity_escena = None
         self.depth_escena = None
+
+        # Lista con los productos obtenidos para el envío de mails
+        self.productos_generados = []
 
         # Shape con recintos
         self.recintos = os.path.join(self.data, 'Recintos_Marisma.shp')
@@ -1421,18 +1434,40 @@ class Product(object):
                 print(f"[ERROR] Falló la copia a {host}: {e}")
 
 
+    def publicar_en_geonetwork(self, username, password):
+        
+        """
+        Publishes the flood XML metadata and raster to GeoNetwork using the utility function.
+
+        Parameters
+        ----------
+        username : str
+            GeoNetwork username.
+
+        password : str
+            Password for the GeoNetwork user.
+        """
+
+
+        xml = os.path.join(self.pro_escena, f"{self.escena}_flood_metadata.xml")
+        tif = os.path.join(self.pro_escena, f"{self.escena}_flood.tif")
+        resultado = subir_xml_y_tif_a_geonetwork(xml, tif, username, password)
+        print("📤 Resultado subida GeoNetwork:", resultado)
+
+
     def run(self):
         
         """
-        Executes the full processing pipeline for a normalized Landsat scene.
+        Executes the complete processing pipeline for a normalized Landsat scene.
 
-        This method orchestrates the generation of all core products, including spectral indices, 
-        flood detection, water turbidity, and depth estimation. It also computes zonal statistics 
-        for marshes, lagoons, and census polygons, stores results in MongoDB, exports CSVs, 
-        and generates visual summaries.
+        This method coordinates the generation of all core products, including spectral indices
+        (NDVI, NDWI, MNDWI), flood detection, water turbidity, and depth estimation. It also performs
+        zonal statistics over marshes, lagoons, and census polygons, stores results in MongoDB,
+        exports CSV summaries, generates quicklook plots, and creates ISO 19139-compliant metadata
+        (XML) for publication in GeoNetwork.
 
-        At the end of the process, products are moved to a final folder and transferred 
-        to remote servers. The coastal analysis module (`Coast`) is also launched.
+        At the end of the process, all output products are organized into a final folder and optionally
+        transferred to remote servers. The coastal analysis module (`Coast`) is also executed.
 
         Parameters
         ----------
@@ -1445,10 +1480,12 @@ class Product(object):
 
         Notes
         -----
-        - The method assumes that the input scene has been pre-normalized.
-        - Each step includes exception handling and logging.
-        - Products include NDVI, NDWI, MNDWI, flood mask, turbidity, depth, zonal summaries, and plots.
+        - The method assumes that the input scene has already been normalized.
+        - Each step includes exception handling and optional email notifications.
+        - Products include NDVI, NDWI, MNDWI, flood mask, turbidity, depth, zonal summaries,
+        lagoon statistics, quicklook images, CSV exports, and ISO metadata.
         """
+
         
         try:
             print('Comenzando el procesamiento de productos...')
@@ -1487,6 +1524,25 @@ class Product(object):
             # Línea de costa
             c = Coast(self.pro_escena)
             c.run()
+
+            #Metadatos
+            print('vamos con los metadatos')
+            generar_metadatos_flood(self)
+            self.publicar_en_geonetwork("someuser", "w*a**th*f***g**e*e")
+
+            # Lista de productos generados para el envío de mails
+            nombres_productos = {
+                'ndvi_escena': 'NDVI',
+                'ndwi_escena': 'NDWI',
+                'mndwi_escena': 'MNDWI',
+                'flood_escena': 'Flood',
+                'turbidity_escena': 'Turbidez',
+                'depth_escena': 'Profundidad'
+            }
+            
+            for attr, nombre in nombres_productos.items():
+                if getattr(self, attr, None) is not None:
+                    self.productos_generados.append(nombre)
     
         except Exception as e:
             print(f"⚠️ Error durante el procesamiento: {e}")
