@@ -91,9 +91,10 @@ celerybeat.pid
 # SageMath parsed files
 *.sage.py
 
-# dotenv
+# dotenv - Environment variables (credentials, passwords, etc.)
 .env
 .env.*
+!.env.example
 
 # virtualenv
 venv/
