@@ -988,57 +988,93 @@ class Product(object):
 
 
     def calcular_inundacion_censo(self):
+        """
+        Calculate flooded surface area for aerial census Level 3 polygons.
         
+        This method computes flooding statistics for all polygons in the aerial 
+        census Level 3 shapefile by intersecting them with the flood mask. Only 
+        pixels with value 1 (water) are counted, excluding clouds (value 2) and 
+        NoData (value -9999).
+        
+        Results are stored in MongoDB and exported as a CSV file with the 
+        following fields: Name, descriptio, superficie_inundada (in hectares).
+        
+        The calculation ensures accurate flood detection by explicitly counting 
+        only water pixels, avoiding overestimation from cloud or NoData pixels.
+        
+        Results are saved to:
+        - MongoDB: `Flood_Data.CensoAereo`
+        - CSV: `censo_aereo_l3.csv` (per-polygon detail)
+        
+        Notes
+        -----
+        - The method uses a custom zonal statistics function to count only water 
+          pixels (value == 1), avoiding overestimation from cloud pixels (value == 2).
+        - Surface area is converted from square meters to hectares (÷ 10000).
+        - The aerial census shapefile must contain 'Name' and 'descriptio' fields.
+        
+        Raises
+        ------
+        Exception
+            If the shapefile cannot be read, MongoDB update fails, or spatial 
+            operations encounter errors.
+        
+        See Also
+        --------
+        get_flood_surface : Calculate flooding for marsh zones.
+        calcular_inundacion_lagunas : Calculate flooding for Carola lagoons.
+        calcular_inundacion_lagunas_labordette : Calculate flooding for Labordette lagoons.
         """
-        Calcula la superficie inundada para los polígonos del censo aéreo L3,
-        guarda los resultados en un CSV y actualiza la base de datos MongoDB.
-        """
-    
+        
         try:
-            # Leer el shapefile del censo aéreo
+            # Read aerial census shapefile
             censo = gpd.read_file(os.path.join(self.data, "censo_aereo_l3.shp"))
             
-            # Cargar la máscara de inundación
+            # Load flood mask and get pixel resolution
             with rasterio.open(self.flood_escena) as src:
-                resolution = src.res[0] * src.res[1]  # Área de un píxel
-    
-            # Calcular estadísticas zonales
+                resolution = src.res[0] * src.res[1]  # Pixel area in square meters
+            
+            # Custom function to count only water pixels (value == 1)
+            def count_water_pixels(x):
+                return np.sum(x == 1)
+            
+            # Calculate zonal statistics
             stats = zonal_stats(
                 censo,
                 self.flood_escena,
-                stats=["sum"],
+                add_stats={'water_pixels': count_water_pixels},
                 raster_out=False,
                 geojson_out=False,
             )
-    
-            # Crear DataFrame de resultados
+            
+            # Create results DataFrame
             censo["superficie_inundada"] = [
-                (stat["sum"] or 0) * resolution / 10000 for stat in stats  # pasamos a hectáreas
+                (stat.get('water_pixels', 0) or 0) * resolution / 10000 for stat in stats  # Convert to hectares
             ]
-    
-            # Seleccionar solo los campos que nos interesan
+            
+            # Select only the fields of interest
             censo_out = censo[["Name", "descriptio", "superficie_inundada"]]
-    
-            # Añadir campo escena para trazabilidad
+            
+            # Add scene field for traceability
             censo_out["_id"] = self.escena
-    
-            # Guardar en CSV con codificación UTF-8
+            
+            # Save to CSV with UTF-8 encoding
             censo_out_path = os.path.join(self.pro_escena, "censo_aereo_l3.csv")
             censo_out.to_csv(censo_out_path, index=False, encoding="utf-8-sig")
-    
-            print(f"✅ Resultados del censo aéreo guardados en: {censo_out_path}")
-    
-            # ---- Actualizar en MongoDB ----
+            
+            print(f"✅ Aerial census results saved to: {censo_out_path}")
+            
+            # Update MongoDB
             censo_dict = censo_out[["Name", "descriptio", "superficie_inundada"]].to_dict(orient="records")
             db.update_one(
                 {"_id": self.escena},
                 {"$set": {"Flood_Data.CensoAereo": censo_dict}},
                 upsert=True
             )
-            print(f"✅ Resultados del censo aéreo actualizados en MongoDB para escena {self.escena}.")
-    
+            print(f"✅ Aerial census results updated in MongoDB for scene {self.escena}.")
+            
         except Exception as e:
-            print(f"❌ Error calculando inundación para censo aéreo: {e}")
+            print(f"❌ Error calculating flooding for aerial census: {e}")
 
 
     def calcular_inundacion_lagunas_labordette(self):
