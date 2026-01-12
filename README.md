@@ -1,10 +1,12 @@
 # Protocolo V2
 
+[![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)](https://github.com/Digdgeo/ProtocoloV2) [![Read the Docs](https://readthedocs.org/projects/protocolov2/badge/?version=latest)](https://protocolov2.readthedocs.io/)
+
 Hi There! 👋
 
-Welcome to **Protocolo V2**—the second official (though technically the fifth!) version of the Landsat image normalization process based on **Pseudo Invariant Areas (PIAs)**. This project aims to automate the processing of Landsat data and generate derived products such as NDVI, inundation masks, turbidity maps, and more.
+Welcome to **Protocolo V2**—the second official (though technically the fifth!) version of the Landsat image normalization process based on **Pseudo Invariant Areas (PIAs)**. This project automates the processing of Landsat data and generates derived products such as NDVI, inundation masks, turbidity maps, and more.
 
-While we're just getting started (this is still a private repo), we have some exciting things in the works! So stay tuned for updates.
+Full documentation is available at **[Protocolo V2 Docs](https://protocolov2.readthedocs.io/)**.
 
 ## What's Inside
 
