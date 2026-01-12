@@ -1,4 +1,3 @@
-
 import os
 import sys
 import rasterio
@@ -467,17 +466,33 @@ class Landsat:
         if self.sat == "L7" and datetime.strptime(self.escena_date, "%Y%m%d") > datetime(2003, 6, 1):
             print("Aplicando gapfill a las bandas de Landsat 7 posteriores a junio de 2003.")
 
-            for band_path in [self.blue, self.green, self.red, self.nir, self.swir1, self.swir2]:
-                if band_path and os.path.exists(band_path):  # Asegurar que la banda existe
-                    print(f"Aplicando gapfill a la banda {band_path}")
+            # Mapeo de bandas para Landsat 7 (ETM+)
+            band_mapping = {
+                'b1': 'blue',
+                'b2': 'green', 
+                'b3': 'red',
+                'b4': 'nir',
+                'b5': 'swir1',
+                'b7': 'swir2'
+            }
+            
+            for band_attr, band_name in band_mapping.items():
+                if hasattr(self, band_attr):
+                    band_path = getattr(self, band_attr)
+                    if band_path and os.path.exists(band_path):
+                        print(f"Aplicando gapfill a la banda {band_name} ({band_path})")
 
-                    # Usar GDAL para llenar los valores NoData en el archivo original
-                    src_ds = gdal.Open(band_path, gdalconst.GA_Update)
-                    if src_ds is not None:
-                        gdal.FillNodata(src_ds.GetRasterBand(1), maskBand=None, maxSearchDist=10, smoothingIterations=1)
-                        src_ds = None  # Liberar el dataset después de modificar
+                        # Usar GDAL para llenar los valores NoData en el archivo original
+                        src_ds = gdal.Open(band_path, gdalconst.GA_Update)
+                        if src_ds is not None:
+                            gdal.FillNodata(src_ds.GetRasterBand(1), maskBand=None, maxSearchDist=10, smoothingIterations=1)
+                            src_ds = None  # Liberar el dataset después de modificar
+                        else:
+                            print(f"No se pudo abrir la banda {band_path} para gapfill.")
                     else:
-                        print(f"No se pudo abrir la banda {band_path} para gapfill.")
+                        print(f"Banda {band_name} no encontrada o no existe.")
+                else:
+                    print(f"Atributo {band_attr} no encontrado en el objeto Landsat.")
 
             print("Gapfill aplicado exitosamente a las bandas de Landsat 7.")
 

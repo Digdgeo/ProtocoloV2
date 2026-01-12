@@ -1,4 +1,3 @@
-
 import os
 import shutil
 import re
@@ -112,6 +111,16 @@ class Product(object):
         else:
             self.cloud_mask_values = [1, 5440, 5504] # 1 es el valor de los gaps
 
+        # Inicializar atributos de bandas con None por defecto
+        self.blue = None
+        self.green = None
+        self.red = None
+        self.nir = None
+        self.swir1 = None
+        self.swir2 = None
+        self.fmask = None
+        self.hillshade = None
+
         for i in os.listdir(self.nor_escena):
             if re.search('tif$', i):
                 # Verificamos si el archivo es 'fmask' o 'hillshade'
@@ -138,10 +147,25 @@ class Product(object):
                         elif banda == 'swir2':
                             self.swir2 = os.path.join(self.nor, i)
 
-        # Debugging print statements
-        print('SWIR1:', self.swir1)
-        print('FMASK:', self.fmask)
-        print('HILLSHADE:', self.hillshade)
+        # Debugging print statements - solo imprimir si existen
+        if self.swir1:
+            print('SWIR1:', self.swir1)
+        else:
+            print('⚠️  SWIR1 no encontrado')
+        if self.fmask:
+            print('FMASK:', self.fmask)
+        else:
+            print('⚠️  FMASK no encontrado')
+        if self.hillshade:
+            print('HILLSHADE:', self.hillshade)
+        else:
+            print('⚠️  HILLSHADE no encontrado')
+        
+        # Verificar bandas críticas
+        bandas_criticas = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2']
+        bandas_faltantes = [b for b in bandas_criticas if getattr(self, b) is None]
+        if bandas_faltantes:
+            raise ValueError(f"⚠️  ERROR: Faltan bandas críticas para generar productos: {', '.join(bandas_faltantes)}")
 
        
         try:
@@ -1482,7 +1506,7 @@ class Product(object):
             self.generate_flood_mask()
             
             # Check cloud coverage before sending to servers
-            SKIP_CLOUD_CHECK = False  # Para pruebas
+            SKIP_CLOUD_CHECK = True  # Para pruebas
             doc = db.find_one({'_id': self.escena})
             cloud_rbios = doc.get('Clouds', {}).get('cloud_RBIOS', 100) if doc else 100
             

@@ -1,7 +1,7 @@
-Protocolo
-=========
+API Modules
+===========
 
 .. toctree::
    :maxdepth: 4
 
-   protocolo
+   modules/protocolo

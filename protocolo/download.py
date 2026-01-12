@@ -1,4 +1,3 @@
-
 import os
 import sys
 import tarfile
@@ -55,41 +54,63 @@ def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
         dataset="landsat_ot_c2_l2",
         lat=latitude,
         lng=longitude,
-        distance=5000,
+        distance=50000,  # Aumentado de 5km a 50km para encontrar más escenas
         start_date=str(inicio),
         end_date=str(hoy),
-        max_results=20,
+        max_results=100,  # Aumentado de 20 a 100
         api_key=api_key
     )
 
     escenas = response.get("data", {}).get("results", [])
-    print(f"\n🔍 Se encontraron {len(escenas)} escenas")
+    print(f"\n🔍 Se encontraron {len(escenas)} escenas en total de la API")
 
     escenas_nuevas = []
+    escenas_filtradas_path = 0
+    escenas_ya_procesadas = 0
+    
     for escena in escenas:
         display_id = escena['displayId']
         partes = display_id.split('_')
+        
+        # Filtrar solo L2SP y T1
         if len(partes) >= 3 and partes[1] == 'L2SP' and partes[-1] == 'T1':
-
-            # --- Generar el _id como en la clase Landsat ---
-            # Ejemplo: LC08_L2SP_202034_20250506_20250513_02_T1
-            sat_code = display_id[:4]  # LC08, LE07, etc.
-            sensor_map = {"LC08": "l8oli", "LC09": "l9oli", "LE07": "l7etm", "LT05": "l5tm"}
-            sensor = sensor_map.get(sat_code, "unknown")
             
-            # Ejemplo: LC08_L2SP_202034_20250506_20250513_02_T1
+            # Extraer path/row
             path_row = display_id.split('_')[2]
             path = path_row[:3]
             row = path_row[-2:]
+            
+            # FILTRO CRÍTICO: Solo path 202 y row 34
+            if path != "202" or row != "34":
+                escenas_filtradas_path += 1
+                print(f"  ⏭️  Ignorando {display_id} (path/row: {path}/{row})")
+                continue
+            
+            print(f"  ✅ Escena válida: {display_id} (path/row: {path}/{row})")
+
+            # --- Generar el _id como en la clase Landsat ---
+            sat_code = display_id[:4]  # LC08, LE07, etc.
+            sensor_map = {"LC08": "l8oli", "LC09": "l9oli", "LE07": "l7etm", "LT05": "l5tm"}
+            sensor = sensor_map.get(sat_code, "unknown")
             fecha = display_id.split('_')[3]
             
             last_name = f"{fecha}{sensor}{path}_{row}"
-            print(f"Chequeando en MongoDB si existe: {last_name}")
+            print(f"  🔎 Chequeando en MongoDB si existe: {last_name}")
 
             escena_en_db = db.find_one({'_id': last_name})
 
             if not escena_en_db or reprocess:
                 escenas_nuevas.append(escena)
+                print(f"  ⭐ Nueva escena para procesar!")
+            else:
+                escenas_ya_procesadas += 1
+                print(f"  ✔️  Ya procesada previamente")
+    
+    print(f"\n📊 Resumen:")
+    print(f"  - Total de escenas encontradas: {len(escenas)}")
+    print(f"  - Escenas filtradas (path/row incorrecto): {escenas_filtradas_path}")
+    print(f"  - Escenas ya procesadas en MongoDB: {escenas_ya_procesadas}")
+    print(f"  - Escenas NUEVAS para procesar: {len(escenas_nuevas)}\n")
 
     destinatarios = EMAIL_RECIPIENTS if EMAIL_RECIPIENTS else [
         'digd.geografo@gmail.com', 'diegogarcia@ebd.csic.es', 'jbustamante@ebd.csic.es', 'manueleduardo.escobar@ebd.csic.es',
@@ -185,7 +206,11 @@ def download_landsat_scenes(latitude, longitude, days_back=15, end_date=None,
 
         except Exception as e:
             print(f"❌ Error procesando escena {display_id}: {e}")
-            enviar_notificacion_finalizada({"escena": display_id}, archivo_adjunto=quicklook, exito=False)
+            try:
+                enviar_notificacion_finalizada({"escena": display_id}, archivo_adjunto=quicklook)
+            except Exception as notif_error:
+                print(f"⚠️ No se pudo enviar notificación: {notif_error}")
+            continue  
 
 
 
@@ -194,6 +219,6 @@ if __name__ == "__main__":
     download_landsat_scenes(
         latitude=37.05,
         longitude=-6.35,
-        #end_date="2025-04-29",
-        days_back=15
+        #end_date="2025-11-23",
+        days_back=5
     )

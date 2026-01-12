@@ -1,0 +1,14 @@
+sphinx>=7.0.0
+sphinx-rtd-theme
+myst-parser
+xarray
+pymongo
+rasterio
+pandas
+geopandas
+fiona
+seaborn
+psycopg2-binary
+opencv-python
+python-dotenv
+landsatxplore
