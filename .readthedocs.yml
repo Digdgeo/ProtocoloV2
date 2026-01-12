@@ -6,7 +6,6 @@ build:
     python: "3.11"
   commands:
     - pip install --no-cache-dir -r requirements-docs.txt
-    - pip install --no-cache-dir -e .
     - mkdir -p docs/source/modules
     - sphinx-apidoc -o docs/source/modules protocolo --force --module-first
     # Añadir :member-order: bysource a los .rst generados
