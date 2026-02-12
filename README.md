@@ -1,6 +1,6 @@
 # Protocolo V2
 
-[![Version](https://img.shields.io/badge/version-2.5.0-blue.svg)](https://github.com/Digdgeo/ProtocoloV2) [![Read the Docs](https://readthedocs.org/projects/protocolov2/badge/?version=latest)](https://protocolov2.readthedocs.io/)
+[![Version](https://img.shields.io/badge/version-2.5.1-blue.svg)](https://github.com/Digdgeo/ProtocoloV2) [![Read the Docs](https://readthedocs.org/projects/protocolov2/badge/?version=latest)](https://protocolov2.readthedocs.io/)
 
 Hi There! 👋
 
@@ -48,7 +48,7 @@ However, all the magic is orchestrated and controlled by `download.py`, which au
 ## To Do List 📝
 
 - [x] Include script for executing hydroperiod (data preparation) (done! ✅)
-- [ ] Make the Docs (coming soon! 📖)
+- [x] Make the Docs (done! ✅) — Available at [protocolov2.readthedocs.io](https://protocolov2.readthedocs.io/)
 - [ ] Create a video tutorial (🎥)
 - [x] Check old and new water masks (six checked) (done! ✅)
 - [ ] Test new thresholds and try to resolve Trebujena crop issues
