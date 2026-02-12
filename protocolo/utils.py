@@ -8,7 +8,6 @@ import requests
 import time
 import xml.etree.ElementTree as ET
 from psycopg2 import sql
-from jinja2 import Environment, FileSystemLoader, Template
 from datetime import datetime, date
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -192,77 +191,265 @@ def enviar_notificacion_finalizada(info_escena, archivo_adjunto=None):
 
 # Metadatos de la escena (Geonetwork)
 
-def generar_metadatos_flood(self):
-
+def generar_metadatos_flood(self, geonetwork_server="https://goyas.csic.es/geonetwork"):
     """
-    Generates the REMegafucking ISO 19139 metadata XML file for the flood mask product using a Jinja2 template.
+    Generates an ISO 19139 metadata XML file for the flood mask product.
 
-    The function reads flood summary data for marshes and lagoons from CSV files and fills
-    the corresponding fields in the metadata template. The output XML is saved in the product folder.
+    The function reads flood summary data for marshes and lagoons from CSV files and
+    generates a complete ISO 19139 XML metadata file. The output XML is saved in the
+    product folder and is ready for upload to GeoNetwork.
 
     Parameters
     ----------
     self : Product
         Instance of the Product class containing scene attributes and file paths.
+    geonetwork_server : str
+        Base URL of the GeoNetwork server for constructing attachment URLs.
 
     Returns
     -------
     None
     """
-    
-    print('**** Metadatos')
+
+    print('**** Generando metadatos XML')
     csv_dir = os.path.join(self.pro_escena, self.escena)
-    print('CSVs here:', csv_dir)
+    print('CSVs en:', csv_dir)
 
     # Read marsh data from SUPERFICIE_INUNDADA.csv
     csv_marismas = os.path.join(csv_dir, f"{self.escena}_superficie_inundada.csv".lower())
-    print(csv_marismas)
-    df_marismas = pd.read_csv(csv_marismas)
-    fila_total = df_marismas[df_marismas["recinto"] == "Total"]
-
-    if not fila_total.empty:
-        sup_ha = round(float(fila_total["area_inundada"].values[0]), 1)
-        sup_pct = round(float(fila_total["porcentaje_inundacion"].values[0]), 1)
-    else:
-        sup_ha = 0
-        sup_pct = 0
+    sup_ha = 0
+    sup_pct = 0
+    if os.path.exists(csv_marismas):
+        df_marismas = pd.read_csv(csv_marismas)
+        fila_total = df_marismas[df_marismas["recinto"] == "Total"]
+        if not fila_total.empty:
+            sup_ha = round(float(fila_total["area_inundada"].values[0]), 1)
+            sup_pct = round(float(fila_total["porcentaje_inundacion"].values[0]), 1)
 
     # Read lagoon data from RESUMEN_LAGUNAS.csv
     csv_lagunas = os.path.join(csv_dir, f"{self.escena}_resumen_lagunas.csv".lower())
+    n_lagunas = 0
+    lagunas_ha = 0
+    lagunas_pct = 0
     if os.path.exists(csv_lagunas):
         df_lag = pd.read_csv(csv_lagunas)
         n_lagunas = int(df_lag["numero_cuerpos_con_agua"].values[0])
         lagunas_ha = round(float(df_lag["superficie_total_inundada"].values[0]), 1)
         lagunas_pct = round(float(df_lag["porcentaje_inundacion"].values[0]), 1)
-    else:
-        n_lagunas = 0
-        lagunas_ha = 0
-        lagunas_pct = 0
 
-    # Load and render XML template with context
-    template_path = os.path.join(self.data, "flood_metadata_template_final.xml")
-    with open(template_path, "r", encoding="utf-8") as f:
-        template = Template(f.read())
+    # Extraer fecha de la escena
+    fecha_escena = datetime.strptime(self.escena[:8], "%Y%m%d").date()
+    fecha_formateada = fecha_escena.strftime("%d/%m/%Y")
+    fecha_iso = fecha_escena.isoformat()
+    fecha_actual_iso = datetime.now().strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
-    context = {
-        "fecha_actual": date.today().isoformat(),
-        "escena": self.escena,
-        "fecha_escena": datetime.strptime(self.escena[:8], "%Y%m%d").date(),  # asumiendo que tienes self.fecha
-        "abstracto": "Máscara de agua derivada de imágenes Landsat Collection 2 Nivel 2 (reflectividad en superficie), normalizadas con áreas pseudo invariantes. Valores: -9999=NoData, 0=Seco, 1=Inundado, 2=No válido (nubes/sombras/errores radiométricos).",
-        "sup_marismas_ha": sup_ha,
-        "sup_marismas_pct": sup_pct,
-        "sup_lagunas_ha": lagunas_ha,
-        "sup_lagunas_pct": lagunas_pct,
-        "n_lagunas": n_lagunas,
-        "nombre_archivo": f"{self.escena}_flood.tif"
-    }
+    # URLs para los attachments en GeoNetwork (formato validado)
+    quicklook_url = f"{geonetwork_server}/srv/api/records/{self.escena}/attachments/{self.escena}_rgb_overview.png"
+    tif_url = f"{geonetwork_server}/srv/api/records/{self.escena}/attachments/{self.escena}_flood.tif"
 
-    
-    xml_rendered = template.render(context)
+    # Abstract
+    abstract = "Mascara de agua derivada de imagenes Landsat Collection 2 Nivel 2 (reflectividad en superficie), normalizadas con areas pseudo invariantes. Valores: -9999=NoData, 0=Seco, 1=Inundado, 2=No valido (nubes/sombras/errores radiometricos)."
+
+    # Informacion suplementaria con datos de inundacion
+    supplemental_info = f"""Superficie inundada en marismas: {sup_ha} ha ({sup_pct}%)
+Superficie inundada en lagunas: {lagunas_ha} ha ({lagunas_pct}%)
+Numero de lagunas con agua: {n_lagunas}
+Escena: {self.escena}
+Sensor: {self.sensor}"""
+
+    titulo = f"Mascara de inundacion Donana - {self.escena} ({fecha_formateada})"
+
+    # Generar XML ISO 19139 (basado en formato validado por GeoNetwork)
+    xml_content = f'''<?xml version="1.0" encoding="UTF-8"?>
+<gmd:MD_Metadata xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gco="http://www.isotc211.org/2005/gco" xmlns:srv="http://www.isotc211.org/2005/srv" xmlns:gmx="http://www.isotc211.org/2005/gmx" xmlns:gts="http://www.isotc211.org/2005/gts" xmlns:gsr="http://www.isotc211.org/2005/gsr" xmlns:gmi="http://www.isotc211.org/2005/gmi" xmlns:gml="http://www.opengis.net/gml" xmlns:xlink="http://www.w3.org/1999/xlink" xsi:schemaLocation="http://www.isotc211.org/2005/gmd http://www.isotc211.org/2005/gmd/gmd.xsd">
+  <gmd:fileIdentifier>
+    <gco:CharacterString>{self.escena}</gco:CharacterString>
+  </gmd:fileIdentifier>
+  <gmd:language>
+    <gmd:LanguageCode codeList="http://www.loc.gov/standards/iso639-2/" codeListValue="spa" />
+  </gmd:language>
+  <gmd:contact>
+    <gmd:CI_ResponsibleParty>
+      <gmd:individualName>
+        <gco:CharacterString>Diego Garcia Diaz</gco:CharacterString>
+      </gmd:individualName>
+      <gmd:organisationName>
+        <gco:CharacterString>Laboratorio de SIG y Teledeteccion - EBD (CSIC)</gco:CharacterString>
+      </gmd:organisationName>
+      <gmd:contactInfo>
+        <gmd:CI_Contact>
+          <gmd:address>
+            <gmd:CI_Address>
+              <gmd:electronicMailAddress>
+                <gco:CharacterString>diegogarcia@ebd.csic.es</gco:CharacterString>
+              </gmd:electronicMailAddress>
+            </gmd:CI_Address>
+          </gmd:address>
+        </gmd:CI_Contact>
+      </gmd:contactInfo>
+      <gmd:role>
+        <gmd:CI_RoleCode codeListValue="author" codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#CI_RoleCode" />
+      </gmd:role>
+    </gmd:CI_ResponsibleParty>
+  </gmd:contact>
+  <gmd:dateStamp>
+    <gco:DateTime>{fecha_actual_iso}</gco:DateTime>
+  </gmd:dateStamp>
+  <gmd:metadataStandardName>
+    <gco:CharacterString>ISO 19115:2003/19139</gco:CharacterString>
+  </gmd:metadataStandardName>
+  <gmd:metadataStandardVersion>
+    <gco:CharacterString>1.0</gco:CharacterString>
+  </gmd:metadataStandardVersion>
+  <gmd:identificationInfo>
+    <gmd:MD_DataIdentification>
+      <gmd:citation>
+        <gmd:CI_Citation>
+          <gmd:title>
+            <gco:CharacterString>{titulo}</gco:CharacterString>
+          </gmd:title>
+          <gmd:date>
+            <gmd:CI_Date>
+              <gmd:date>
+                <gco:Date>{fecha_iso}</gco:Date>
+              </gmd:date>
+              <gmd:dateType>
+                <gmd:CI_DateTypeCode codeListValue="creation" codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#CI_DateTypeCode" />
+              </gmd:dateType>
+            </gmd:CI_Date>
+          </gmd:date>
+          <gmd:identifier>
+            <gmd:MD_Identifier>
+              <gmd:code>
+                <gco:CharacterString>{geonetwork_server}/srv/resources/{self.escena}</gco:CharacterString>
+              </gmd:code>
+            </gmd:MD_Identifier>
+          </gmd:identifier>
+        </gmd:CI_Citation>
+      </gmd:citation>
+      <gmd:abstract>
+        <gco:CharacterString>{abstract}</gco:CharacterString>
+      </gmd:abstract>
+      <gmd:graphicOverview>
+        <gmd:MD_BrowseGraphic>
+          <gmd:fileName>
+            <gco:CharacterString>{quicklook_url}</gco:CharacterString>
+          </gmd:fileName>
+        </gmd:MD_BrowseGraphic>
+      </gmd:graphicOverview>
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gco:CharacterString>inundacion</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:keyword>
+            <gco:CharacterString>Donana</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:keyword>
+            <gco:CharacterString>Landsat</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:keyword>
+            <gco:CharacterString>humedales</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:keyword>
+            <gco:CharacterString>LAST-EBD</gco:CharacterString>
+          </gmd:keyword>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+      <gmd:language>
+        <gco:CharacterString>spa</gco:CharacterString>
+      </gmd:language>
+      <gmd:topicCategory>
+        <gmd:MD_TopicCategoryCode>inlandWaters</gmd:MD_TopicCategoryCode>
+      </gmd:topicCategory>
+      <gmd:extent>
+        <gmd:EX_Extent>
+          <gmd:geographicElement>
+            <gmd:EX_GeographicBoundingBox>
+              <gmd:westBoundLongitude>
+                <gco:Decimal>-7.5063</gco:Decimal>
+              </gmd:westBoundLongitude>
+              <gmd:eastBoundLongitude>
+                <gco:Decimal>-4.9833</gco:Decimal>
+              </gmd:eastBoundLongitude>
+              <gmd:southBoundLatitude>
+                <gco:Decimal>36.5625</gco:Decimal>
+              </gmd:southBoundLatitude>
+              <gmd:northBoundLatitude>
+                <gco:Decimal>38.384</gco:Decimal>
+              </gmd:northBoundLatitude>
+            </gmd:EX_GeographicBoundingBox>
+          </gmd:geographicElement>
+        </gmd:EX_Extent>
+      </gmd:extent>
+      <gmd:supplementalInformation>
+        <gco:CharacterString>{supplemental_info}</gco:CharacterString>
+      </gmd:supplementalInformation>
+    </gmd:MD_DataIdentification>
+  </gmd:identificationInfo>
+  <gmd:distributionInfo>
+    <gmd:MD_Distribution>
+      <gmd:distributor>
+        <gmd:MD_Distributor>
+          <gmd:distributorContact>
+            <gmd:CI_ResponsibleParty>
+              <gmd:organisationName>
+                <gco:CharacterString>Laboratorio de SIG y Teledeteccion - EBD (CSIC)</gco:CharacterString>
+              </gmd:organisationName>
+              <gmd:contactInfo>
+                <gmd:CI_Contact>
+                  <gmd:address>
+                    <gmd:CI_Address>
+                      <gmd:electronicMailAddress>
+                        <gco:CharacterString>diegogarcia@ebd.csic.es</gco:CharacterString>
+                      </gmd:electronicMailAddress>
+                    </gmd:CI_Address>
+                  </gmd:address>
+                </gmd:CI_Contact>
+              </gmd:contactInfo>
+              <gmd:role>
+                <gmd:CI_RoleCode codeListValue="distributor" codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#CI_RoleCode" />
+              </gmd:role>
+            </gmd:CI_ResponsibleParty>
+          </gmd:distributorContact>
+          <gmd:distributorFormat>
+            <gmd:MD_Format>
+              <gmd:name>
+                <gco:CharacterString>GeoTIFF</gco:CharacterString>
+              </gmd:name>
+              <gmd:version>
+                <gco:CharacterString>1.0</gco:CharacterString>
+              </gmd:version>
+            </gmd:MD_Format>
+          </gmd:distributorFormat>
+        </gmd:MD_Distributor>
+      </gmd:distributor>
+      <gmd:transferOptions>
+        <gmd:MD_DigitalTransferOptions>
+          <gmd:onLine>
+            <gmd:CI_OnlineResource>
+              <gmd:linkage>
+                <gmd:URL>{tif_url}</gmd:URL>
+              </gmd:linkage>
+              <gmd:protocol>
+                <gco:CharacterString>WWW:DOWNLOAD</gco:CharacterString>
+              </gmd:protocol>
+              <gmd:name>
+                <gco:CharacterString>{self.escena}_flood.tif</gco:CharacterString>
+              </gmd:name>
+            </gmd:CI_OnlineResource>
+          </gmd:onLine>
+        </gmd:MD_DigitalTransferOptions>
+      </gmd:transferOptions>
+    </gmd:MD_Distribution>
+  </gmd:distributionInfo>
+</gmd:MD_Metadata>'''
+
     output_path = os.path.join(self.pro_escena, f"{self.escena}_flood_metadata.xml")
-
     with open(output_path, "w", encoding="utf-8") as f:
-        f.write(xml_rendered)
+        f.write(xml_content)
+
+    print(f"Metadatos XML generados en: {output_path}")
 
 
 def extraer_uuid(xml_path):
@@ -273,10 +460,10 @@ def extraer_uuid(xml_path):
     uuid = root.find('.//gmd:fileIdentifier/gco:CharacterString', ns)
     return uuid.text if uuid is not None else None
 
-def subir_xml_y_tif_a_geonetwork(xml_path, tif_path, username, password, server="https://goyas.csic.es/geonetwork"):
-    
+def subir_xml_y_tif_a_geonetwork(xml_path, tif_path, username, password, quicklook_path=None, server="https://goyas.csic.es/geonetwork"):
+
     """
-    Uploads a metadata XML file and a GeoTIFF file as an attachment to the same record in GeoNetwork.
+    Uploads a metadata XML file, a GeoTIFF file and optionally a quicklook image as attachments to GeoNetwork.
 
     Parameters
     ----------
@@ -288,6 +475,8 @@ def subir_xml_y_tif_a_geonetwork(xml_path, tif_path, username, password, server=
         GeoNetwork username.
     password : str
         Password for the GeoNetwork user.
+    quicklook_path : str, optional
+        Path to the quicklook PNG image to use as overview/thumbnail in GeoNetwork.
     server : str, optional
         Base URL of the GeoNetwork server (default is 'https://goyas.csic.es/geonetwork').
 
@@ -299,14 +488,14 @@ def subir_xml_y_tif_a_geonetwork(xml_path, tif_path, username, password, server=
         - 'uuid' is the UUID of the record (if successful)
         - 'mensaje' contains a status message or error details
     """
-    
+
     session = requests.Session()
     login_url = f"{server}/srv/spa/info?type=me"
     login_response = session.post(login_url, auth=(username, password))
     xsrf_token = login_response.cookies.get("XSRF-TOKEN")
 
     if not xsrf_token:
-        return {"status": "error", "uuid": None, "mensaje": "❌ No se pudo obtener el token XSRF."}
+        return {"status": "error", "uuid": None, "mensaje": "No se pudo obtener el token XSRF."}
 
     headers = {
         "Accept": "application/json",
@@ -316,7 +505,7 @@ def subir_xml_y_tif_a_geonetwork(xml_path, tif_path, username, password, server=
     # UUID basado en el nombre del archivo (sin extensión)
     uuid = extraer_uuid(xml_path)
     if not uuid:
-        return {"status": "error", "uuid": None, "mensaje": "❌ No se pudo extraer el UUID del XML."}
+        return {"status": "error", "uuid": None, "mensaje": "No se pudo extraer el UUID del XML."}
 
 
     # Comprobar si el UUID ya existe en GeoNetwork
@@ -324,7 +513,7 @@ def subir_xml_y_tif_a_geonetwork(xml_path, tif_path, username, password, server=
     check_response = session.get(check_url, headers=headers, auth=(username, password))
 
     if check_response.status_code == 200:
-        print(f"ℹ️ El UUID {uuid} ya existe en GeoNetwork. No se subirá de nuevo el XML.")
+        print(f"El UUID {uuid} ya existe en GeoNetwork. No se subira de nuevo el XML.")
     else:
         # Subir el XML si no existe
         upload_url = f"{server}/srv/api/records"
@@ -337,32 +526,60 @@ def subir_xml_y_tif_a_geonetwork(xml_path, tif_path, username, password, server=
             return {
                 "status": "error",
                 "uuid": uuid,
-                "mensaje": f"❌ Error al subir el XML: {response.status_code} - {response.text}"
+                "mensaje": f"Error al subir el XML: {response.status_code} - {response.text}"
             }
 
-        print(f"✅ XML subido correctamente con UUID: {uuid}")
+        print(f"XML subido correctamente con UUID: {uuid}")
 
     # Subir el TIF como adjunto
-    print(f"📎 Subiendo TIF al UUID: {uuid}")
+    print(f"Subiendo TIF al UUID: {uuid}")
     attach_url = f"{server}/srv/api/records/{uuid}/attachments"
     with open(tif_path, "rb") as file:
         files = {"file": (os.path.basename(tif_path), file)}
         attach_response = session.post(attach_url, headers=headers, files=files, auth=(username, password))
 
-    print(f"📤 Respuesta del servidor al adjuntar TIF: {attach_response.status_code}")
-    print(f"🧾 Contenido: {attach_response.text}")
+    print(f"Respuesta del servidor al adjuntar TIF: {attach_response.status_code}")
+    print(f"Contenido: {attach_response.text}")
 
-    if attach_response.status_code in [200, 201]:
+    tif_ok = attach_response.status_code in [200, 201]
+
+    # Subir el quicklook como overview si se proporciona
+    quicklook_ok = True
+    if quicklook_path and os.path.exists(quicklook_path):
+        print(f"Subiendo quicklook como overview al UUID: {uuid}")
+        # Usar el endpoint de overview para que GeoNetwork lo muestre como thumbnail
+        overview_url = f"{server}/srv/api/records/{uuid}/attachments"
+        with open(quicklook_path, "rb") as file:
+            # El nombre del archivo debe ser 'overview' para que GeoNetwork lo reconozca como thumbnail
+            overview_filename = f"{os.path.splitext(os.path.basename(quicklook_path))[0]}_overview.png"
+            files = {"file": (overview_filename, file, "image/png")}
+            params = {"visibility": "public"}
+            overview_response = session.post(overview_url, headers=headers, files=files, auth=(username, password), params=params)
+
+        print(f"Respuesta del servidor al adjuntar quicklook: {overview_response.status_code}")
+        print(f"Contenido: {overview_response.text}")
+        quicklook_ok = overview_response.status_code in [200, 201]
+
+        if not quicklook_ok:
+            print(f"Advertencia: No se pudo subir el quicklook: {overview_response.status_code}")
+
+    if tif_ok:
+        mensaje = "XML (si era necesario) y TIFF subidos correctamente."
+        if quicklook_path:
+            if quicklook_ok:
+                mensaje += " Quicklook subido correctamente."
+            else:
+                mensaje += " Advertencia: el quicklook no se pudo subir."
         return {
             "status": "ok",
             "uuid": uuid,
-            "mensaje": "✅ XML (si era necesario) y TIFF subidos correctamente."
+            "mensaje": mensaje
         }
     else:
         return {
             "status": "error",
             "uuid": uuid,
-            "mensaje": f"⚠️ XML subido pero error al adjuntar TIF: {attach_response.status_code} - {attach_response.text}"
+            "mensaje": f"XML subido pero error al adjuntar TIF: {attach_response.status_code} - {attach_response.text}"
         }
 
 

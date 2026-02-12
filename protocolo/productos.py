@@ -1425,10 +1425,14 @@ class Product(object):
 
 
     def publicar_en_geonetwork(self, username, password):
-        
+
         """
-        Publica el XML y el raster de inundación en GeoNetwork usando la función utilitaria.
-    
+        Publica el XML, el raster de inundación y el quicklook en GeoNetwork.
+
+        El registro en GeoNetwork usa el nombre de la escena (self.escena, que es el _id de MongoDB)
+        como identificador único. Se adjunta la composición RGB como quicklook/overview para
+        que se muestre como vista previa en el catálogo.
+
         Parameters
         ----------
         username : str
@@ -1438,8 +1442,15 @@ class Product(object):
         """
         xml = os.path.join(self.pro_escena, f"{self.escena}_flood_metadata.xml")
         tif = os.path.join(self.pro_escena, f"{self.escena}_flood.tif")
-        resultado = subir_xml_y_tif_a_geonetwork(xml, tif, username, password)
-        print("📤 Resultado subida GeoNetwork:", resultado)
+        quicklook = os.path.join(self.pro_escena, f"{self.escena}_rgb.png")
+
+        # Verificar que el quicklook existe
+        if not os.path.exists(quicklook):
+            print(f"Advertencia: No se encontro el quicklook en {quicklook}")
+            quicklook = None
+
+        resultado = subir_xml_y_tif_a_geonetwork(xml, tif, username, password, quicklook_path=quicklook)
+        print("Resultado subida GeoNetwork:", resultado)
 
 
     def run(self):
@@ -1500,30 +1511,31 @@ class Product(object):
             # Aerial census Level 3
             self.calcular_inundacion_censo()
     
-            # RGB composition and flood mask (JPGs)
-            print('vamos a enviar las imágenes a vps y pro')
+            # RGB composition and flood mask (PNGs)
+            print('Generando composicion RGB y mascara de inundacion...')
             self.generate_composition_rgb()
             self.generate_flood_mask()
-            
+
+            # Coastline extraction
+            c = Coast(self.pro_escena)
+            c.run()
+
+            # Metadata generation and publication to GeoNetwork
+            # IMPORTANTE: Debe ejecutarse ANTES de movidas_de_servidores() para que el PNG exista
+            print('Generando metadatos y publicando en GeoNetwork...')
+            generar_metadatos_flood(self)
+            self.publicar_en_geonetwork("diegogarcia", "iV524qI&aefq")
+
             # Check cloud coverage before sending to servers
             SKIP_CLOUD_CHECK = True  # Para pruebas
             doc = db.find_one({'_id': self.escena})
             cloud_rbios = doc.get('Clouds', {}).get('cloud_RBIOS', 100) if doc else 100
-            
+
             if SKIP_CLOUD_CHECK or cloud_rbios <= 20:
                 print(f'Cobertura de nubes en RBIOS: {cloud_rbios}% - Enviando a servidores...')
                 self.movidas_de_servidores()
             else:
-                print(f'⚠️ Cobertura de nubes en RBIOS: {cloud_rbios}% (>20%) - NO se envían productos a servidores')
-    
-            # Coastline extraction
-            c = Coast(self.pro_escena)
-            c.run()
-    
-            # Metadata generation and publication
-            print('vamos con los metadatos')
-            generar_metadatos_flood(self)
-            self.publicar_en_geonetwork("diegogarcia", "iV524qI&aefq")
+                print(f'Cobertura de nubes en RBIOS: {cloud_rbios}% (>20%) - NO se envian productos a servidores')
     
             # List of generated products for email notification
             nombres_productos = {
