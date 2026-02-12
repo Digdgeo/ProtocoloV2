@@ -261,12 +261,21 @@ Sensor: {self.sensor}"""
 
     # Generar XML ISO 19139 (basado en formato validado por GeoNetwork)
     xml_content = f'''<?xml version="1.0" encoding="UTF-8"?>
-<gmd:MD_Metadata xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:gco="http://www.isotc211.org/2005/gco" xmlns:srv="http://www.isotc211.org/2005/srv" xmlns:gmx="http://www.isotc211.org/2005/gmx" xmlns:gts="http://www.isotc211.org/2005/gts" xmlns:gsr="http://www.isotc211.org/2005/gsr" xmlns:gmi="http://www.isotc211.org/2005/gmi" xmlns:gml="http://www.opengis.net/gml" xmlns:xlink="http://www.w3.org/1999/xlink" xsi:schemaLocation="http://www.isotc211.org/2005/gmd http://www.isotc211.org/2005/gmd/gmd.xsd">
+<gmd:MD_Metadata xmlns:gco="http://www.isotc211.org/2005/gco" xmlns:gml="http://www.opengis.net/gml"
+                 xmlns:srv="http://www.isotc211.org/2005/srv"
+                 xmlns:gmd="http://www.isotc211.org/2005/gmd"
+                 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                 xmlns:gmx="http://www.isotc211.org/2005/gmx"
+                 xmlns:gsr="http://www.isotc211.org/2005/gsr"
+                 xmlns:xlink="http://www.w3.org/1999/xlink"
+                 xmlns:gmi="http://www.isotc211.org/2005/gmi"
+                 xmlns:gts="http://www.isotc211.org/2005/gts"
+                 xsi:schemaLocation="http://www.isotc211.org/2005/gmd http://www.isotc211.org/2005/gmd/gmd.xsd">
   <gmd:fileIdentifier>
     <gco:CharacterString>{self.escena}</gco:CharacterString>
   </gmd:fileIdentifier>
   <gmd:language>
-    <gmd:LanguageCode codeList="http://www.loc.gov/standards/iso639-2/" codeListValue="spa" />
+    <gmd:LanguageCode codeList="http://www.loc.gov/standards/iso639-2/" codeListValue="spa"/>
   </gmd:language>
   <gmd:contact>
     <gmd:CI_ResponsibleParty>
@@ -288,7 +297,8 @@ Sensor: {self.sensor}"""
         </gmd:CI_Contact>
       </gmd:contactInfo>
       <gmd:role>
-        <gmd:CI_RoleCode codeListValue="author" codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#CI_RoleCode" />
+        <gmd:CI_RoleCode codeListValue="author"
+                         codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#CI_RoleCode"/>
       </gmd:role>
     </gmd:CI_ResponsibleParty>
   </gmd:contact>
@@ -301,6 +311,57 @@ Sensor: {self.sensor}"""
   <gmd:metadataStandardVersion>
     <gco:CharacterString>1.0</gco:CharacterString>
   </gmd:metadataStandardVersion>
+  <gmd:spatialRepresentationInfo xmlns:gml="http://www.opengis.net/gml/3.2">
+    <gmd:MD_GridSpatialRepresentation>
+      <gmd:numberOfDimensions>
+        <gco:Integer>2</gco:Integer>
+      </gmd:numberOfDimensions>
+      <gmd:axisDimensionProperties>
+        <gmd:MD_Dimension>
+          <gmd:dimensionName>
+            <gmd:MD_DimensionNameTypeCode codeListValue="row"
+                                          codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#MD_DimensionNameTypeCode"/>
+          </gmd:dimensionName>
+          <gmd:dimensionSize>
+            <gco:Integer>1</gco:Integer>
+          </gmd:dimensionSize>
+          <gmd:resolution>
+            <gco:Measure uom="m">30</gco:Measure>
+          </gmd:resolution>
+        </gmd:MD_Dimension>
+      </gmd:axisDimensionProperties>
+      <gmd:axisDimensionProperties>
+        <gmd:MD_Dimension>
+          <gmd:dimensionName>
+            <gmd:MD_DimensionNameTypeCode codeListValue="column"
+                                          codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#MD_DimensionNameTypeCode"/>
+          </gmd:dimensionName>
+          <gmd:dimensionSize>
+            <gco:Integer>1</gco:Integer>
+          </gmd:dimensionSize>
+          <gmd:resolution>
+            <gco:Measure uom="m">30</gco:Measure>
+          </gmd:resolution>
+        </gmd:MD_Dimension>
+      </gmd:axisDimensionProperties>
+      <gmd:cellGeometry>
+        <gmd:MD_CellGeometryCode codeListValue="area"
+                                 codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#MD_CellGeometryCode"/>
+      </gmd:cellGeometry>
+      <gmd:transformationParameterAvailability gco:nilReason="unknown"/>
+    </gmd:MD_GridSpatialRepresentation>
+  </gmd:spatialRepresentationInfo>
+  <gmd:referenceSystemInfo xmlns:gml="http://www.opengis.net/gml/3.2">
+    <gmd:MD_ReferenceSystem>
+      <gmd:referenceSystemIdentifier>
+        <gmd:RS_Identifier>
+          <gmd:code>
+            <gco:CharacterString>EPSG:32629</gco:CharacterString>
+          </gmd:code>
+        </gmd:RS_Identifier>
+      </gmd:referenceSystemIdentifier>
+    </gmd:MD_ReferenceSystem>
+  </gmd:referenceSystemInfo>
   <gmd:identificationInfo>
     <gmd:MD_DataIdentification>
       <gmd:citation>
@@ -314,17 +375,11 @@ Sensor: {self.sensor}"""
                 <gco:Date>{fecha_iso}</gco:Date>
               </gmd:date>
               <gmd:dateType>
-                <gmd:CI_DateTypeCode codeListValue="creation" codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#CI_DateTypeCode" />
+                <gmd:CI_DateTypeCode codeListValue="creation"
+                                     codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#CI_DateTypeCode"/>
               </gmd:dateType>
             </gmd:CI_Date>
           </gmd:date>
-          <gmd:identifier>
-            <gmd:MD_Identifier>
-              <gmd:code>
-                <gco:CharacterString>{geonetwork_server}/srv/resources/{self.escena}</gco:CharacterString>
-              </gmd:code>
-            </gmd:MD_Identifier>
-          </gmd:identifier>
         </gmd:CI_Citation>
       </gmd:citation>
       <gmd:abstract>
@@ -354,8 +409,47 @@ Sensor: {self.sensor}"""
           <gmd:keyword>
             <gco:CharacterString>LAST-EBD</gco:CharacterString>
           </gmd:keyword>
+          <gmd:type>
+            <gmd:MD_KeywordTypeCode codeListValue="theme"
+                                    codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#MD_KeywordTypeCode"/>
+          </gmd:type>
         </gmd:MD_Keywords>
       </gmd:descriptiveKeywords>
+      <gmd:descriptiveKeywords>
+        <gmd:MD_Keywords>
+          <gmd:keyword>
+            <gco:CharacterString>World</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:keyword>
+            <gco:CharacterString>Spain</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:keyword>
+            <gco:CharacterString>Andalucia</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:keyword>
+            <gco:CharacterString>Donana</gco:CharacterString>
+          </gmd:keyword>
+          <gmd:type>
+            <gmd:MD_KeywordTypeCode codeListValue="place"
+                                    codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#MD_KeywordTypeCode"/>
+          </gmd:type>
+        </gmd:MD_Keywords>
+      </gmd:descriptiveKeywords>
+      <gmd:resourceConstraints>
+        <gmd:MD_LegalConstraints>
+          <gmd:accessConstraints>
+            <gmd:MD_RestrictionCode codeListValue="license"
+                                    codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#MD_RestrictionCode"/>
+          </gmd:accessConstraints>
+          <gmd:useConstraints>
+            <gmd:MD_RestrictionCode codeListValue="otherRestictions"
+                                    codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#MD_RestrictionCode"/>
+          </gmd:useConstraints>
+          <gmd:otherConstraints>
+            <gco:CharacterString>Creative Commons 4.0</gco:CharacterString>
+          </gmd:otherConstraints>
+        </gmd:MD_LegalConstraints>
+      </gmd:resourceConstraints>
       <gmd:language>
         <gco:CharacterString>spa</gco:CharacterString>
       </gmd:language>
@@ -387,8 +481,67 @@ Sensor: {self.sensor}"""
       </gmd:supplementalInformation>
     </gmd:MD_DataIdentification>
   </gmd:identificationInfo>
+  <gmd:contentInfo xmlns:gml="http://www.opengis.net/gml/3.2">
+    <gmi:MI_CoverageDescription>
+      <gmd:attributeDescription>
+        <gco:RecordType>MaskLevel</gco:RecordType>
+      </gmd:attributeDescription>
+      <gmd:contentType>
+        <gmd:MD_CoverageContentTypeCode codeListValue="physicalMeasurement"
+                                        codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#MD_CoverageContentTypeCode"/>
+      </gmd:contentType>
+      <gmi:rangeElementDescription>
+        <gmi:MI_RangeElementDescription>
+          <gmi:name>
+            <gco:CharacterString>Nivel mascara de agua</gco:CharacterString>
+          </gmi:name>
+          <gmi:definition>
+            <gco:CharacterString>Mascara de agua derivada de imagenes Landsat</gco:CharacterString>
+          </gmi:definition>
+          <gmi:rangeElement>
+            <gco:Record>
+              <gmi:MI_Band>
+                <gmd:sequenceIdentifier>
+                  <gco:MemberName>
+                    <gco:aName>
+                      <gco:CharacterString>Nivel mascara</gco:CharacterString>
+                    </gco:aName>
+                    <gco:attributeType>
+                      <gco:TypeName>
+                        <gco:aName gco:nilReason="missing">
+                          <gco:CharacterString/>
+                        </gco:aName>
+                      </gco:TypeName>
+                    </gco:attributeType>
+                  </gco:MemberName>
+                </gmd:sequenceIdentifier>
+                <gmd:descriptor>
+                  <gco:CharacterString>Mascara de agua derivada de imagenes Landsat</gco:CharacterString>
+                </gmd:descriptor>
+                <gmd:units>
+                  <gml:UnitDefinition>
+                    <gml:name>no unit</gml:name>
+                  </gml:UnitDefinition>
+                </gmd:units>
+              </gmi:MI_Band>
+            </gco:Record>
+          </gmi:rangeElement>
+        </gmi:MI_RangeElementDescription>
+      </gmi:rangeElementDescription>
+    </gmi:MI_CoverageDescription>
+  </gmd:contentInfo>
   <gmd:distributionInfo>
     <gmd:MD_Distribution>
+      <gmd:distributionFormat>
+        <gmd:MD_Format>
+          <gmd:name>
+            <gco:CharacterString>GeoTIFF</gco:CharacterString>
+          </gmd:name>
+          <gmd:version>
+            <gco:CharacterString>1.0</gco:CharacterString>
+          </gmd:version>
+        </gmd:MD_Format>
+      </gmd:distributionFormat>
       <gmd:distributor>
         <gmd:MD_Distributor>
           <gmd:distributorContact>
@@ -408,7 +561,8 @@ Sensor: {self.sensor}"""
                 </gmd:CI_Contact>
               </gmd:contactInfo>
               <gmd:role>
-                <gmd:CI_RoleCode codeListValue="distributor" codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#CI_RoleCode" />
+                <gmd:CI_RoleCode codeListValue="distributor"
+                                 codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#CI_RoleCode"/>
               </gmd:role>
             </gmd:CI_ResponsibleParty>
           </gmd:distributorContact>
@@ -443,6 +597,100 @@ Sensor: {self.sensor}"""
       </gmd:transferOptions>
     </gmd:MD_Distribution>
   </gmd:distributionInfo>
+  <gmd:dataQualityInfo xmlns:gml="http://www.opengis.net/gml/3.2">
+    <gmd:DQ_DataQuality>
+      <gmd:scope>
+        <gmd:DQ_Scope>
+          <gmd:level>
+            <gmd:MD_ScopeCode codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#MD_ScopeCode"
+                              codeListValue="attribute"/>
+          </gmd:level>
+          <gmd:levelDescription>
+            <gmd:MD_ScopeDescription>
+              <gmd:other>
+                <gco:CharacterString>MaskLevel</gco:CharacterString>
+              </gmd:other>
+            </gmd:MD_ScopeDescription>
+          </gmd:levelDescription>
+        </gmd:DQ_Scope>
+      </gmd:scope>
+      <gmd:report>
+        <gmd:DQ_QuantitativeAttributeAccuracy>
+          <gmd:result>
+            <gmd:DQ_QuantitativeResult>
+              <gmd:valueUnit>
+                <gml:UnitDefinition gml:id="ErrorValue_MaskLevel">
+                  <gml:identifier codeSpace="http://www.opengis.net/def/uom/OGC/1.0">MaskLevel</gml:identifier>
+                  <gml:name>ErrorValue</gml:name>
+                  <gml:quantityType/>
+                </gml:UnitDefinition>
+              </gmd:valueUnit>
+              <gmd:value>
+                <gco:Record>0.05</gco:Record>
+              </gmd:value>
+            </gmd:DQ_QuantitativeResult>
+          </gmd:result>
+        </gmd:DQ_QuantitativeAttributeAccuracy>
+      </gmd:report>
+      <gmd:report>
+        <gmd:DQ_QuantitativeAttributeAccuracy>
+          <gmd:result>
+            <gmd:DQ_QuantitativeResult>
+              <gmd:valueUnit>
+                <gml:UnitDefinition gml:id="PrecisionValue_MaskLevel">
+                  <gml:identifier codeSpace="http://www.opengis.net/def/uom/OGC/1.0">MaskLevel</gml:identifier>
+                  <gml:name>PrecisionValue</gml:name>
+                  <gml:quantityType/>
+                </gml:UnitDefinition>
+              </gmd:valueUnit>
+              <gmd:value>
+                <gco:Record>0.01</gco:Record>
+              </gmd:value>
+            </gmd:DQ_QuantitativeResult>
+          </gmd:result>
+        </gmd:DQ_QuantitativeAttributeAccuracy>
+      </gmd:report>
+      <gmd:lineage>
+        <gmd:LI_Lineage>
+          <gmd:statement>
+            <gco:CharacterString>General</gco:CharacterString>
+          </gmd:statement>
+          <gmd:processStep>
+            <gmd:LI_ProcessStep>
+              <gmd:description>
+                <gco:CharacterString>Normalizacion radiometrica y generacion de mascara de inundacion</gco:CharacterString>
+              </gmd:description>
+              <gmd:source uuidref="">
+                <gmd:LI_Source>
+                  <gmd:description>
+                    <gco:CharacterString>Descarga de imagenes Landsat Collection 2 Level 2, normalizacion con areas pseudo-invariantes y clasificacion de agua mediante umbrales espectrales</gco:CharacterString>
+                  </gmd:description>
+                  <gmd:sourceCitation>
+                    <gmd:CI_Citation>
+                      <gmd:title>
+                        <gco:CharacterString>USGS Landsat Collection 2</gco:CharacterString>
+                      </gmd:title>
+                      <gmd:date>
+                        <gmd:CI_Date>
+                          <gmd:date>
+                            <gco:Date>{fecha_iso}</gco:Date>
+                          </gmd:date>
+                          <gmd:dateType>
+                            <gmd:CI_DateTypeCode codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#CI_DateTypeCode"
+                                                 codeListValue="creation"/>
+                          </gmd:dateType>
+                        </gmd:CI_Date>
+                      </gmd:date>
+                    </gmd:CI_Citation>
+                  </gmd:sourceCitation>
+                </gmd:LI_Source>
+              </gmd:source>
+            </gmd:LI_ProcessStep>
+          </gmd:processStep>
+        </gmd:LI_Lineage>
+      </gmd:lineage>
+    </gmd:DQ_DataQuality>
+  </gmd:dataQualityInfo>
 </gmd:MD_Metadata>'''
 
     output_path = os.path.join(self.pro_escena, f"{self.escena}_flood_metadata.xml")
@@ -502,11 +750,10 @@ def subir_xml_y_tif_a_geonetwork(xml_path, tif_path, username, password, quicklo
         "X-XSRF-TOKEN": xsrf_token
     }
 
-    # UUID basado en el nombre del archivo (sin extensión)
+    # UUID basado en el nombre de la escena (fileIdentifier del XML)
     uuid = extraer_uuid(xml_path)
     if not uuid:
         return {"status": "error", "uuid": None, "mensaje": "No se pudo extraer el UUID del XML."}
-
 
     # Comprobar si el UUID ya existe en GeoNetwork
     check_url = f"{server}/srv/api/records/{uuid}"
@@ -515,14 +762,14 @@ def subir_xml_y_tif_a_geonetwork(xml_path, tif_path, username, password, quicklo
     if check_response.status_code == 200:
         print(f"El UUID {uuid} ya existe en GeoNetwork. No se subira de nuevo el XML.")
     else:
-        # Subir el XML si no existe
+        # Subir el XML usando OVERWRITE para mantener el fileIdentifier como UUID
         upload_url = f"{server}/srv/api/records"
         with open(xml_path, "rb") as file:
             files = {"file": (os.path.basename(xml_path), file, "application/xml")}
             params = {"uuidProcessing": "OVERWRITE"}
             response = session.post(upload_url, headers=headers, files=files, auth=(username, password), params=params)
 
-        if response.status_code != 201:
+        if response.status_code not in [200, 201]:
             return {
                 "status": "error",
                 "uuid": uuid,
