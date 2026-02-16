@@ -261,16 +261,17 @@ Sensor: {self.sensor}"""
 
     # Generar XML ISO 19139 (basado en formato validado por GeoNetwork)
     xml_content = f'''<?xml version="1.0" encoding="UTF-8"?>
-<gmd:MD_Metadata xmlns:gco="http://www.isotc211.org/2005/gco" xmlns:gml="http://www.opengis.net/gml"
-                 xmlns:srv="http://www.isotc211.org/2005/srv"
-                 xmlns:gmd="http://www.isotc211.org/2005/gmd"
+<gmd:MD_Metadata xmlns:gmd="http://www.isotc211.org/2005/gmd"
                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                 xmlns:gco="http://www.isotc211.org/2005/gco"
+                 xmlns:srv="http://www.isotc211.org/2005/srv"
                  xmlns:gmx="http://www.isotc211.org/2005/gmx"
-                 xmlns:gsr="http://www.isotc211.org/2005/gsr"
-                 xmlns:xlink="http://www.w3.org/1999/xlink"
-                 xmlns:gmi="http://www.isotc211.org/2005/gmi"
                  xmlns:gts="http://www.isotc211.org/2005/gts"
-                 xsi:schemaLocation="http://www.isotc211.org/2005/gmd http://www.isotc211.org/2005/gmd/gmd.xsd">
+                 xmlns:gsr="http://www.isotc211.org/2005/gsr"
+                 xmlns:gmi="http://www.isotc211.org/2005/gmi"
+                 xmlns:gml="http://www.opengis.net/gml"
+                 xmlns:xlink="http://www.w3.org/1999/xlink"
+                 xsi:schemaLocation="http://www.isotc211.org/2005/gmd http://www.isotc211.org/2005/gmd/gmd.xsd http://www.isotc211.org/2005/gmi http://www.isotc211.org/2005/gmi/gmi.xsd">
   <gmd:fileIdentifier>
     <gco:CharacterString>{self.escena}</gco:CharacterString>
   </gmd:fileIdentifier>
@@ -305,10 +306,10 @@ Sensor: {self.sensor}"""
   <gmd:dateStamp>
     <gco:DateTime>{fecha_actual_iso}</gco:DateTime>
   </gmd:dateStamp>
-  <gmd:metadataStandardName>
+  <gmd:metadataStandardName xmlns:gml="http://www.opengis.net/gml/3.2">
     <gco:CharacterString>ISO 19115:2003/19139</gco:CharacterString>
   </gmd:metadataStandardName>
-  <gmd:metadataStandardVersion>
+  <gmd:metadataStandardVersion xmlns:gml="http://www.opengis.net/gml/3.2">
     <gco:CharacterString>1.0</gco:CharacterString>
   </gmd:metadataStandardVersion>
   <gmd:spatialRepresentationInfo xmlns:gml="http://www.opengis.net/gml/3.2">
@@ -456,6 +457,20 @@ Sensor: {self.sensor}"""
       <gmd:topicCategory>
         <gmd:MD_TopicCategoryCode>inlandWaters</gmd:MD_TopicCategoryCode>
       </gmd:topicCategory>
+      <gmd:extent>
+        <gmd:EX_Extent>
+          <gmd:temporalElement>
+            <gmd:EX_TemporalExtent>
+              <gmd:extent>
+                <gml:TimePeriod gml:id="tp1">
+                  <gml:beginPosition>{fecha_iso}</gml:beginPosition>
+                  <gml:endPosition>{fecha_iso}</gml:endPosition>
+                </gml:TimePeriod>
+              </gmd:extent>
+            </gmd:EX_TemporalExtent>
+          </gmd:temporalElement>
+        </gmd:EX_Extent>
+      </gmd:extent>
       <gmd:extent>
         <gmd:EX_Extent>
           <gmd:geographicElement>
