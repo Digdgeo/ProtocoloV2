@@ -269,7 +269,7 @@ Sensor: {self.sensor}"""
                  xmlns:gts="http://www.isotc211.org/2005/gts"
                  xmlns:gsr="http://www.isotc211.org/2005/gsr"
                  xmlns:gmi="http://www.isotc211.org/2005/gmi"
-                 xmlns:gml="http://www.opengis.net/gml"
+                 xmlns:gml="http://www.opengis.net/gml/3.2"
                  xmlns:xlink="http://www.w3.org/1999/xlink"
                  xsi:schemaLocation="http://www.isotc211.org/2005/gmd http://www.isotc211.org/2005/gmd/gmd.xsd http://www.isotc211.org/2005/gmi http://www.isotc211.org/2005/gmi/gmi.xsd">
   <gmd:fileIdentifier>
@@ -363,7 +363,7 @@ Sensor: {self.sensor}"""
       </gmd:referenceSystemIdentifier>
     </gmd:MD_ReferenceSystem>
   </gmd:referenceSystemInfo>
-  <gmd:identificationInfo>
+  <gmd:identificationInfo xmlns:gml="http://www.opengis.net/gml/3.2">
     <gmd:MD_DataIdentification>
       <gmd:citation>
         <gmd:CI_Citation>
@@ -534,7 +534,8 @@ Sensor: {self.sensor}"""
                   <gco:CharacterString>Mascara de agua derivada de imagenes Landsat</gco:CharacterString>
                 </gmd:descriptor>
                 <gmd:units>
-                  <gml:UnitDefinition>
+                  <gml:UnitDefinition gml:id="noUnitID">
+                    <gml:identifier codeSpace="http://www.opengis.net/def/uom/OGC/1.0">noUnitID</gml:identifier>
                     <gml:name>no unit</gml:name>
                   </gml:UnitDefinition>
                 </gmd:units>
@@ -629,42 +630,6 @@ Sensor: {self.sensor}"""
           </gmd:levelDescription>
         </gmd:DQ_Scope>
       </gmd:scope>
-      <gmd:report>
-        <gmd:DQ_QuantitativeAttributeAccuracy>
-          <gmd:result>
-            <gmd:DQ_QuantitativeResult>
-              <gmd:valueUnit>
-                <gml:UnitDefinition gml:id="ErrorValue_MaskLevel">
-                  <gml:identifier codeSpace="http://www.opengis.net/def/uom/OGC/1.0">MaskLevel</gml:identifier>
-                  <gml:name>ErrorValue</gml:name>
-                  <gml:quantityType/>
-                </gml:UnitDefinition>
-              </gmd:valueUnit>
-              <gmd:value>
-                <gco:Record>0.05</gco:Record>
-              </gmd:value>
-            </gmd:DQ_QuantitativeResult>
-          </gmd:result>
-        </gmd:DQ_QuantitativeAttributeAccuracy>
-      </gmd:report>
-      <gmd:report>
-        <gmd:DQ_QuantitativeAttributeAccuracy>
-          <gmd:result>
-            <gmd:DQ_QuantitativeResult>
-              <gmd:valueUnit>
-                <gml:UnitDefinition gml:id="PrecisionValue_MaskLevel">
-                  <gml:identifier codeSpace="http://www.opengis.net/def/uom/OGC/1.0">MaskLevel</gml:identifier>
-                  <gml:name>PrecisionValue</gml:name>
-                  <gml:quantityType/>
-                </gml:UnitDefinition>
-              </gmd:valueUnit>
-              <gmd:value>
-                <gco:Record>0.01</gco:Record>
-              </gmd:value>
-            </gmd:DQ_QuantitativeResult>
-          </gmd:result>
-        </gmd:DQ_QuantitativeAttributeAccuracy>
-      </gmd:report>
       <gmd:lineage>
         <gmd:LI_Lineage>
           <gmd:statement>
@@ -696,6 +661,56 @@ Sensor: {self.sensor}"""
                           </gmd:dateType>
                         </gmd:CI_Date>
                       </gmd:date>
+                    </gmd:CI_Citation>
+                  </gmd:sourceCitation>
+                </gmd:LI_Source>
+              </gmd:source>
+              <gmd:source>
+                <gmd:LI_Source>
+                  <gmd:description>
+                    <gco:CharacterString>Codigo fuente y documentacion del protocolo de procesamiento</gco:CharacterString>
+                  </gmd:description>
+                  <gmd:sourceCitation>
+                    <gmd:CI_Citation>
+                      <gmd:title>
+                        <gco:CharacterString>ProtocoloV2 - Protocolo Landsat Donana</gco:CharacterString>
+                      </gmd:title>
+                      <gmd:date>
+                        <gmd:CI_Date>
+                          <gmd:date>
+                            <gco:Date>{fecha_iso}</gco:Date>
+                          </gmd:date>
+                          <gmd:dateType>
+                            <gmd:CI_DateTypeCode codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#CI_DateTypeCode"
+                                                 codeListValue="publication"/>
+                          </gmd:dateType>
+                        </gmd:CI_Date>
+                      </gmd:date>
+                      <gmd:citedResponsibleParty>
+                        <gmd:CI_ResponsibleParty>
+                          <gmd:contactInfo>
+                            <gmd:CI_Contact>
+                              <gmd:onlineResource>
+                                <gmd:CI_OnlineResource>
+                                  <gmd:linkage>
+                                    <gmd:URL>https://github.com/Digdgeo/ProtocoloV2</gmd:URL>
+                                  </gmd:linkage>
+                                  <gmd:protocol>
+                                    <gco:CharacterString>WWW:LINK</gco:CharacterString>
+                                  </gmd:protocol>
+                                  <gmd:name>
+                                    <gco:CharacterString>Repositorio GitHub</gco:CharacterString>
+                                  </gmd:name>
+                                </gmd:CI_OnlineResource>
+                              </gmd:onlineResource>
+                            </gmd:CI_Contact>
+                          </gmd:contactInfo>
+                          <gmd:role>
+                            <gmd:CI_RoleCode codeListValue="author"
+                                             codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#CI_RoleCode"/>
+                          </gmd:role>
+                        </gmd:CI_ResponsibleParty>
+                      </gmd:citedResponsibleParty>
                     </gmd:CI_Citation>
                   </gmd:sourceCitation>
                 </gmd:LI_Source>
