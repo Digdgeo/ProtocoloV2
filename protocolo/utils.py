@@ -663,17 +663,7 @@ Sensor: {self.sensor}"""
                       <gmd:title>
                         <gco:CharacterString>USGS Landsat Collection 2</gco:CharacterString>
                       </gmd:title>
-                      <gmd:date>
-                        <gmd:CI_Date>
-                          <gmd:date>
-                            <gco:Date>{fecha_iso}</gco:Date>
-                          </gmd:date>
-                          <gmd:dateType>
-                            <gmd:CI_DateTypeCode codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#CI_DateTypeCode"
-                                                 codeListValue="creation"/>
-                          </gmd:dateType>
-                        </gmd:CI_Date>
-                      </gmd:date>
+                      <gmd:date gco:nilReason="unknown"/>
                     </gmd:CI_Citation>
                   </gmd:sourceCitation>
                 </gmd:LI_Source>
@@ -688,17 +678,7 @@ Sensor: {self.sensor}"""
                       <gmd:title>
                         <gco:CharacterString>ProtocoloV2 - Protocolo Landsat Donana</gco:CharacterString>
                       </gmd:title>
-                      <gmd:date>
-                        <gmd:CI_Date>
-                          <gmd:date>
-                            <gco:Date>{fecha_iso}</gco:Date>
-                          </gmd:date>
-                          <gmd:dateType>
-                            <gmd:CI_DateTypeCode codeList="http://standards.iso.org/iso/19139/resources/gmxCodelists.xml#CI_DateTypeCode"
-                                                 codeListValue="publication"/>
-                          </gmd:dateType>
-                        </gmd:CI_Date>
-                      </gmd:date>
+                      <gmd:date gco:nilReason="unknown"/>
                       <gmd:citedResponsibleParty>
                         <gmd:CI_ResponsibleParty>
                           <gmd:contactInfo>
