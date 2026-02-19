@@ -783,23 +783,25 @@ def subir_xml_y_tif_a_geonetwork(xml_path, tif_path, username, password, quicklo
     check_response = session.get(check_url, headers=headers, auth=(username, password))
 
     if check_response.status_code == 200:
-        print(f"El UUID {uuid} ya existe en GeoNetwork. No se subira de nuevo el XML.")
-    else:
-        # Subir el XML usando OVERWRITE para mantener el fileIdentifier como UUID
-        upload_url = f"{server}/srv/api/records"
-        with open(xml_path, "rb") as file:
-            files = {"file": (os.path.basename(xml_path), file, "application/xml")}
-            params = {"uuidProcessing": "OVERWRITE"}
-            response = session.post(upload_url, headers=headers, files=files, auth=(username, password), params=params)
+        print(f"El UUID {uuid} ya existe en GeoNetwork. Se eliminara y se subira de nuevo.")
+        delete_url = f"{server}/srv/api/records/{uuid}"
+        session.delete(delete_url, headers=headers, auth=(username, password))
 
-        if response.status_code not in [200, 201]:
-            return {
-                "status": "error",
-                "uuid": uuid,
-                "mensaje": f"Error al subir el XML: {response.status_code} - {response.text}"
-            }
+    # Subir el XML usando OVERWRITE para mantener el fileIdentifier como UUID
+    upload_url = f"{server}/srv/api/records"
+    with open(xml_path, "rb") as file:
+        files = {"file": (os.path.basename(xml_path), file, "application/xml")}
+        params = {"uuidProcessing": "OVERWRITE"}
+        response = session.post(upload_url, headers=headers, files=files, auth=(username, password), params=params)
 
-        print(f"XML subido correctamente con UUID: {uuid}")
+    if response.status_code not in [200, 201]:
+        return {
+            "status": "error",
+            "uuid": uuid,
+            "mensaje": f"Error al subir el XML: {response.status_code} - {response.text}"
+        }
+
+    print(f"XML subido correctamente con UUID: {uuid}")
 
     # Subir el TIF como adjunto
     print(f"Subiendo TIF al UUID: {uuid}")
