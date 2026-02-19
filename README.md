@@ -31,19 +31,19 @@ However, all the magic is orchestrated and controlled by `download.py`, which au
 
 ## Installation
 
-1. Clone this repository:
-    ```bash
-    git clone https://your-repo-url.git
-    cd your-repo-folder
-    ```
-2. Install the required dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
+Install directly from GitHub:
+```bash
+pip install git+https://github.com/Digdgeo/ProtocoloV2.git
+```
 
-3. Configure your environment (e.g., MongoDB connection, paths to Landsat images).
+Or clone and install locally:
+```bash
+git clone https://github.com/Digdgeo/ProtocoloV2.git
+cd ProtocoloV2
+pip install .
+```
 
-4. Run the processing scripts.
+Then configure your environment (e.g., MongoDB connection, paths to Landsat images) and run the processing scripts.
 
 ## To Do List 📝
 
